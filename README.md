@@ -1,6 +1,6 @@
 # Anvil
 Forge HTML games
-- (Full documentation)[defonitions.md]
+- [Full documentation](defonitions.md)
 
 ## Usage
 ### Install 
