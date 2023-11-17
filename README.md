@@ -4,9 +4,7 @@ Forge HTML games
 
 ## Usage
 ### Install 
-```html
-<script src = "https://raw.githubusercontent.com/sojs-coder/Anvil/main/anvil.js"></script>
-```
+Download anvil.js and upload it to your site.
 
 ## Background
 
