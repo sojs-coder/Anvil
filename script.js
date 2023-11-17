@@ -590,6 +590,9 @@ class Scene{
   bindCamera(object){
     this.cameraBind = object
   }
+  unbindCamera(){
+    this.cameraBind = false;
+  }
   cameraTo(object){
     var middleOfObject = [object.coordinates[0]+object.getWidth()/2,object.coordinates[1]+object.getHeight()/2];
     var middleOfCanvas = [this.width/2,this.height/2];
