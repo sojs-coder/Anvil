@@ -398,7 +398,6 @@ class Sprite extends Object{
   constructor(image, x, y, width, height){
     super();
     this.image = image;
-    this.ctx = ctx;
     this.coordinates = [x,y];
     this.width = width;
     this.height = height;
