@@ -5,7 +5,7 @@ Forge HTML games
 ## Usage
 ### Install 
 ```html
-<script src = "https://raw.githubusercontent.com/sojs-coder/Anvil/main/script.js"></script>
+<script src = "https://raw.githubusercontent.com/sojs-coder/Anvil/main/anvil.js"></script>
 ```
 
 ## Background
