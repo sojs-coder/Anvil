@@ -76,3 +76,59 @@ Changes the source of the image. To have any effect, must be followed by `Sprite
 
 #### `polify()`
 Returns a list of the vertices of the sprite.
+
+## Scene(HTMLCanvasElement, width, height)
+
+Creates a new scene on the specified canvas with a width of `width` and a height of `height`.
+
+### Methods
+
+#### `setBoundaries(rightBound,bottomBound, activate=true)`
+Sets boundaries for the scene. Does not allow objects to move outside of the bounds with `object.move`.
+If activate is false, the bounds will not work until `scene.activateBounds()` is called. Otherwise, bounds are automatically active.
+
+#### `disableBounds()`
+Disables bounds set with `Scene.setBoundaries()`.
+
+#### `activateBounds()`
+Activates bounds set with `Scene.setBoundaries()`.
+
+#### `addObject(object)`
+Adds the specific object to the render queue. Order is important.
+For example, the following code will render `object2` on top of `object`.
+
+```js
+scene.addObject(object1)
+scene.addObject(object2)
+```
+
+#### `clear()`
+Clears the canvas
+
+#### `draw(clear=true)`
+Draws each object in the scene. If `clear` is set to true (defualt), then the previous frame will be cleared before drawing the next one.
+
+#### `removeObject(object)`
+Removes an object from the scene
+
+#### `enableCollisionsBetween(object1, object2, onFunction, offFunction)`
+Enables collisions between `object1` and `object2`. `onFunction` is called when the collision happens, and when the objects are no longer colliding, `offFunction` is called. Both are called one time (even if the object stays collided for multiple frames)
+
+#### `bindCamera(object)`
+Binds the scene's camera to the specified object
+
+#### `unbindCamera()`
+Unbinds the camera from an object (allows the object to move freely, seperate from the camera)
+
+#### `cameraTo(object)`
+Moves the camera to the specified object. If the object moves, the camera will not move after the function is called. To keep the camera on an object forever, us `bindCamera`.
+
+#### `moveCamera(vector)`
+Moves the scene camera in accordance with that vector.
+
+#### `enableFPS()`
+Enables an FPS counter on the top left of the canvas
+
+#### `disableFPS()`
+Disables the FPS counter.
+
