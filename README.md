@@ -166,7 +166,7 @@ Works in the same way as `object.move()`, but moves the camera instead.
 ## Adding scene boundaries
 
 ```js
-scene.setBounds(bounds);
+scene.setBoundaries(rightBound, bottomBound);
 ```
 
 Where bounds is a range `[x,y]`. This will not allow objects that move with the `object.move()` method to move outside these boundaries.
@@ -174,7 +174,7 @@ Where bounds is a range `[x,y]`. This will not allow objects that move with the 
 For example:
 
 ```js
-scene.setBounds([500,500]);
+scene.setBoundaries(500,500);
 // this ensures that objects can not move outside of a 500x500 square with the object.move method
 poly.move([500,500]); // will not do anything
 poly.move([1,1]); // will work!
