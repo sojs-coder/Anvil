@@ -1,5 +1,6 @@
 # Anvil
 Forge HTML games
+- (Full documentation)[defonitions.md)
 
 ## Usage
 ### Install 
@@ -154,7 +155,7 @@ scene.cameraTo(object);
 
 This will call once, and if the object moves, the camera will not move with it. For tracking objects, use `bindCamera` instead.
 
-### Moving manually
+### Moving the camera manually
 
 ```js
 scene.moveCamera(vector);
