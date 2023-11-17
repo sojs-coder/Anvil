@@ -261,9 +261,6 @@ class Object{
     this.pinned = true
   }
   draw(){ }
-  checkCollision(poly1,poly2) {
-    return checkCollision(poly1,poly2);
-  }
   polify() { }
   setBounds(bounds){
     this.bounds = bounds;
