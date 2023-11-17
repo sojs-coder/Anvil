@@ -73,22 +73,6 @@ function findTopLeftMostPoint(points) {
 
   return topLeftMost;
 }
-function getFRegion(vertices) {
-  return function x(point) {
-    // Check if the point is within the feasible region
-    // You can implement a point-in-polygon algorithm here
-
-    // For simplicity, let's assume a basic bounding box check
-    const [minX, minY, maxX, maxY] = getBoundingBox(vertices);
-
-    return (
-      point.x >= minX &&
-      point.x <= maxX &&
-      point.y >= minY &&
-      point.y <= maxY
-    );
-  };
-}
 
 // Helper function to get the bounding box of the feasible region
 function getBoundingBox(vertices) {
@@ -107,17 +91,6 @@ function getBoundingBox(vertices) {
   return [minX, minY, maxX, maxY];
 }
 
-// Example usage:
-const feasibleRegionVertices = [
-  { x: -0.5, y: -1 },
-  { x: 0.43, y: 3.32 },
-  { x: -2.64, y: 2.31 },
-  { x: 5.15, y: 0.55 },
-];
-
-const isInFeasibleRegion = getFRegion(feasibleRegionVertices);
-// wait...
-// Test points
 
 /**
  * Performs the even-odd-rule Algorithm (a raycasting algorithm) to find out whether a point is in a given polygon.
