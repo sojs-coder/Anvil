@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anvil.js Physics Demo</title>
+  <script src="/anvil.min.js"></script>
+</head>
+<body>
+  <canvas id="physicsCanvas" width="800" height="600"></canvas>
+  <script>
+    const physicsCanvas = document.getElementById("physicsCanvas");
+    const physicsScene = new Scene({
+      width: 800,
+      height: 600,
+      canvas: physicsCanvas,
+      physics: true,
+      fpsMonitoringEnabled: true,
+      start: true,
+    });
+
+    // Create and add squares
+    for (let i = 0; i < 10; i++) {
+      const square = new Polygon({
+        points: [[i * 80, 400], [(i + 1) * 80, 400], [(i + 1) * 80, 500], [i * 80, 500]],
+        backgroundColor: "#0000FF",
+        physicsEnabled: true,
+        physicsOptions: { mass: 10 },
+      });
+      physicsScene.addObject(square);
+    }
+
+    // Create player-controlled square
+    const playerSquare = new Polygon({
+      points: [[200, 200], [250, 200], [250, 250], [200, 250]],
+      backgroundColor: "#FFA500",
+      physicsEnabled: true,
+      physicsOptions: { mass: 20 },
+    });
+    physicsScene.addObject(playerSquare);
+
+    // Bind camera to player square
+    physicsScene.bindCamera(playerSquare);
+
+    // Monitor arrow keys for player movement
+    const moveLeft = new Input("ArrowLeft");
+    const moveRight = new Input("ArrowRight");
+
+    moveLeft.on = () => {
+      playerSquare.move([-10, 0]);
+    };
+
+    moveRight.on = () => {
+      playerSquare.move([10, 0]);
+    };
+
+    moveLeft.activate();
+    moveRight.activate();
+  </script>
+</body>
+</html>
