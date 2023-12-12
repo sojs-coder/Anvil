@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anvil.js No Physics and No Light Demo</title>
+  <script src="/anvil.min.js"></script>
+</head>
+<body>
+  <canvas id="noPhysicsLightCanvas" width="800" height="600"></canvas>
+  <script>
+    const noPhysicsLightCanvas = document.getElementById("noPhysicsLightCanvas");
+    const noPhysicsLightScene = new Scene({
+      width: 800,
+      height: 600,
+      canvas: noPhysicsLightCanvas,
+      fpsMonitoringEnabled: true,
+      start: true,
+    });
+
+    // Create and add polygons
+    const polygon1 = new Polygon({
+      points: [[100, 100], [150, 100], [150, 150], [100, 150]],
+      backgroundColor: "#FF0000",
+    });
+    const polygon2 = new Polygon({
+      points: [[200, 200], [250, 200], [250, 250], [200, 250]],
+      backgroundColor: "#00FF00",
+    });
+
+    noPhysicsLightScene.addObject(polygon1);
+    noPhysicsLightScene.addObject(polygon2);
+  </script>
+</body>
+</html>
