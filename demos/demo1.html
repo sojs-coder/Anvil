@@ -9,7 +9,8 @@
 <body>
   <canvas id="lightingCanvas" width="800" height="600"></canvas>
   <script>
-    alert("hello");
+    alert("hello ther cah");
+    try{
     alert(JSON.stringify(Scene));
 
     const lightingCanvas = document.getElementById("lightingCanvas");
@@ -41,6 +42,9 @@
 
     lightingScene.addLight(light1);
     lightingScene.addLight(light2);
+    }catch(err){
+      alert(err)
+    }
   </script>
 </body>
 </html>
