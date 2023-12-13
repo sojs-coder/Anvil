@@ -1,0 +1,116 @@
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directional Lighting Scene</title>
+    <style>
+      canvas { border: 1px solid #000; }
+    </style>
+  </head>
+  <body>  
+    <script src = "matter.js"></script>
+    <script src = "gpu.js"></script>
+    <script src = "anvil.js"></script>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <script>
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Define colored triangles in the scene
+      const triangles = [
+        { vertices: [[50, 50], [150, 50], [100, 150]], color: [255, 0, 0, 255] },    // Red triangle
+        { vertices: [[200, 50], [300, 50], [250, 150]], color: [0, 255, 0, 255] },  // Green triangle
+        { vertices: [[100, 200], [200, 200], [150, 300]], color: [0, 0, 255, 255] }  // Blue triangle
+      ];
+
+      function drawScene() {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        for (const triangle of triangles) {
+          const path = new Path2D();
+          const [startX, startY] = triangle.vertices[0];
+          path.moveTo(startX, startY);
+
+          for (let i = 1; i < triangle.vertices.length; i++) {
+            const [x, y] = triangle.vertices[i];
+            path.lineTo(x, y);
+          }
+
+          path.closePath();
+
+          const [r, g, b, a] = triangle.color;
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+          ctx.fill(path);
+        }
+      }
+      const directionalLights = [
+        [Math.PI / 4, 100, 100, 1, 400, Math.PI / 3],
+        [Math.PI, 300, 300, 0.8, 500, Math.PI / 4]
+      ];
+      function applyDirectionalLights(x, y, currentColor) {
+        let ambient = 0.05;
+        let finalColor = [0,0,0,255]; // Initialize with ambient color
+        let pixelLit = false;
+        brightness = ambient;
+        for (const light of directionalLights) {
+          const [lightDir, lightX, lightY, intensity, diffuse, spread] = light;
+
+          // Calculate direction from light to pixel
+          const dirX = x - lightX;
+          const dirY = y - lightY;
+          const distance = Math.sqrt(dirX * dirX + dirY * dirY);
+
+          // Check if pixel is within the light spread angle
+          const angleToLight = Math.atan2(dirY, dirX);
+          const angleDiff = Math.abs(angleToLight - lightDir);
+
+          if (angleDiff <= spread / 2) {
+            // Calculate diffuse lighting
+            const diffuseFactor = Math.max(0, Math.cos(angleDiff) * (1 - (distance / diffuse)));
+            brightness += intensity * diffuseFactor;
+            
+          }
+        }
+        finalColor = currentColor.map((channel, index) => Math.min(255, channel * brightness));
+        return finalColor
+      }
+
+      // Draw the initial scene
+      drawScene();
+      function diffuse(){
+        const width = canvas.width;
+        const height = canvas.height;
+    
+        const pix = ctx.getImageData(0, 0, width, height).data;
+
+        // Loop through each pixel
+        for(var x = 0; x < width; x++){
+          for(var y = 0; y < height; y++){
+            // Calculate the color of the pixel
+            const pixelColor = [pix[(x + y * width) * 4 + 0], pix[(x + y * width) * 4 + 1], pix[(x + y * width) * 4 + 2], pix[(x + y * width) * 4 + 3]];
+            var [r,g,b,a] = applyDirectionalLights(x,y,pixelColor);
+            ctx.fillStyle = `rgba(${r},${g},${b},${a})`
+            ctx.fillRect(x,y,1,1);
+          }
+        }
+      }
+
+      var mouseX, mouseY = [-1,-1]
+
+      document.addEventListener("mousemove",(e)=>{
+        mouseX = event.clientX - canvas.getBoundingClientRect().left;
+        mouseY = event.clientY - canvas.getBoundingClientRect().top;
+  
+      })
+      // Call the diffuse function to apply directional lighting
+        diffuse();
+      setInterval(()=>{
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        directionalLights[0][0] = Math.atan2(mouseY - directionalLights[0][1], mouseX - directionalLights[0][2]);
+        drawScene();
+        diffuse();
+      },1000/10);
+    </script>
+  </body>
+  </html>

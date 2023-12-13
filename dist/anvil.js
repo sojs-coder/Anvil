@@ -1,9 +1,3 @@
-/*
-* This code with without required dependencies for Physics and Lighting.
-* Install GPU.js and matter.js above this file in your HTML
-* */
-
-
 const FPS_BUFFER_LENGTH = 150;
 function calculateFPS(buffer) {
   buffer = buffer.map(t => {
