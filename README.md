@@ -3,17 +3,17 @@
 Anvil.js is a lightweight JavaScript library that simplifies the creation and management of 2D scenes for web applications. It provides an easy-to-use interface for rendering graphics, handling user input, implementing physics simulations, and incorporating lighting effects.
 
 ## Capabilities
-- can handle multiple scene
+- multiple scenes
 - lighting
 - physics
 - collision detection
-- input
+- keyboard input
 - mouse input
 
 # Getting Started
 
 
-To get started, install the library into your HTML
+To get started, add the script to HTML file.
 ```html
 <script src = "/dist/anvil.min.js"></script>
 ```
