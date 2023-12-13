@@ -78,7 +78,10 @@ p {
   font-size: 1.2rem;
   margin: 2rem;
   transition: background-color 0.3s;
+  text-align: center;
+  width: 200px;
 }
+
 
 .cta-buttons a:hover {
   background-color: #45a9d2;
