@@ -20,15 +20,27 @@
     });
 
     // Create and add squares
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       const square = new Polygon({
         points: [[i * 80, 400], [(i + 1) * 80, 400], [(i + 1) * 80, 500], [i * 80, 500]],
         backgroundColor: "#0000FF",
         physicsEnabled: true,
         physicsOptions: { mass: 10 },
       });
+      i++
       physicsScene.addObject(square);
     }
+
+    // create floor
+    const floor = new Polygon({
+      points: [[00,600],[600+1000,600],[600+1000,700],[600,700]],
+      backgroundColor: "black",
+      physicsEnabled: true,
+      physicsOptions: { 
+        isStatic: true
+      }
+    });
+    physicsScene.addObject(floor)
 
     // Create player-controlled square
     const playerSquare = new Polygon({
@@ -47,11 +59,11 @@
     const moveRight = new Input("ArrowRight");
 
     moveLeft.on = () => {
-      playerSquare.move([-10, 0]);
+      playerSquare.move([-1, 0]);
     };
 
     moveRight.on = () => {
-      playerSquare.move([10, 0]);
+      playerSquare.move([1, 0]);
     };
 
     moveLeft.activate();
