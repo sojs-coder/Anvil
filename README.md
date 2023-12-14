@@ -137,4 +137,4 @@ For detailed documentation and usage instructions, refer to the [Anvil.js Docume
 
 # License
 
-Anvil.js is licensed under the MIT License
+Anvil.js is licensed under the MIT License.
