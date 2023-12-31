@@ -18,4 +18,3 @@ var sceneManager = new SceneManager({
   width: window.innerWidth,
   height: window.innerHeight,
 }); 
-sceneManager.addScene(scene2);
