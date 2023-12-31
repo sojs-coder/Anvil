@@ -1,4 +1,4 @@
-
+var { Scene, SceneManager } = ANVIL;
 
 var scene = new Scene({
   fpsMonitoringEnabled: true,
@@ -17,4 +17,4 @@ var sceneManager = new SceneManager({
   initialScene: scene,
   width: window.innerWidth,
   height: window.innerHeight,
-}); 
+});
