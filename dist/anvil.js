@@ -675,15 +675,12 @@ class Scene {
     } else {
       this.gpu = new GPU.GPU(options.GPUsettings || {})
     }
-    if (options.physics == "real") {
-      this.physics = "matter";
+    if (options.physics) {
+      this.physics = true;
       this.Engine = Matter.Engine
       this.Bodies = Matter.Bodies
       this.Composite = Matter.Composite;
       this.engine = Matter.Engine.create(options.physicsOptions);
-    }else if(options.physics == "basic"){
-      this.physics = "basic";
-      this.Engine = new BasicPhysicsEngine();
     }
     this.readyToDraw = false;
   }
