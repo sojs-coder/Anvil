@@ -15,10 +15,8 @@ Anvil.js is a lightweight JavaScript library that simplifies the creation and ma
 
 To get started, add the script to HTML file.
 ```html
-<script src = "/dist/anvil.min.js"></script>
+<script src = "/build/anvil.js"></script>
 ```
-
-> Make sure to grab `.min.js`, as that is the bundled version. Otherwise, install `/deps/gpu.js` and `/deps/matter.js` alongside it.
 
 Create a canvas element in your HTML file where you want to render the scene.
 
@@ -33,17 +31,18 @@ Now, you can start using Anvil.js to create and manage your 2D scenes.
 
 ## 1. Scene Management
 
-Anvil.js provides a `Scene` class for managing 2D scenes. You can easily create scenes, add objects (polygons and sprites), enable physics, and control the rendering loop.
+Anvil.js provides a `Scene` class and `SceneManager` class for managing 2D scenes. You can easily create scenes, add objects (polygons and sprites), enable physics, and control the rendering loop.
 
 ```js
 const myScene = new Scene({
-  width: 800,
-  height: 600,
-  canvas: document.getElementById("myCanvas"),
   fpsMonitoringEnabled: true,
   lighting: true,
   physics: true,
-  start: true,
+});
+
+const sceneManager = new SceneManager({
+     initialScene: myScene,
+     canvas: document.getElementById("canvas")
 });
 ```
 
@@ -131,9 +130,9 @@ Check out the provided demo examples to see Anvil.js in action:
 2. [Physics Demo with Player-Controlled Square](/demos/demo2.html)
 3. [No Physics and No lights demo](/demos/demo3.html)
 
-# Documentation
+<!-- # Documentation -->
 
-For detailed documentation and usage instructions, refer to the [Anvil.js Documentation](https://github.com/sojs-coder/Anvil/wiki).
+<!-- For detailed documentation and usage instructions, refer to the [Anvil.js Documentation](https://github.com/sojs-coder/Anvil/wiki). -->
 
 # License
 

@@ -1,4 +1,6 @@
-const ANVIL = (() => {
+import { Socket } from "net";
+
+// const ANVIL = (() => {
     const Matter = require("matter-js");
     const GPU = require("gpu.js");
 
@@ -448,6 +450,14 @@ const ANVIL = (() => {
      */
     type CollisionMonitor = [GameObject, GameObject, Function, Function, boolean];
 
+
+    /**
+     * Function for handling user input
+     * 
+     * @type {EventOnFunction}
+     * @param {Event | GameObject} event - The event that triggered the function. If the input listens for keyboard input, this is an Event object, otherwise it is the GameObject that was clicked.
+     */
+    type EventOnFunction = (event: Event | GameObject) => void;
 
     // Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
     /**
@@ -2388,11 +2398,11 @@ const ANVIL = (() => {
      * @property {any} fireInterval - Interval that the input fires on
      * @property {boolean} firing - Whether or not the input is firing
      * @property {boolean} clickMonitor - Whether or not the input is a click monitor
-     * @property {Function} on - Function to run when the input is fired
+     * @property {EventOnFunction} on - Function to run when the input is fired (EventOnFunction)
      * @example
      * ```js
      * const input = new Input("w", 100);
-     * input.on = () => {
+     * input.on = (event) => {
      *      console.log("w pressed");
      * }
      * input.activate(scene);
@@ -2508,6 +2518,106 @@ const ANVIL = (() => {
         }
     }
 
+
+
+    interface MultiPlayerServerOptions {
+        port: number;
+        httpServer: any;
+        onNewConnection: Function;
+        onDisconnect: Function;
+    }
+    interface Connection {
+        socket: any;
+        id: string;
+        label: string;
+    }
+    class MultiPlayerServer {
+        socketConnections: Array<Connection>;
+        onNewConnection: Function;
+        onDisconnect: Function;
+        constructor(multiPlayerServerOptions: MultiPlayerServerOptions){
+            const socketio = require("socket.io");
+            const io = socketio(multiPlayerServerOptions.httpServer);
+            this.socketConnections = [];
+            this.onNewConnection = multiPlayerServerOptions.onNewConnection;
+            this.onDisconnect = multiPlayerServerOptions.onDisconnect;
+
+            io.on("connection", (socket: any) => {
+                this.addSocketConnection(socket);
+            });
+        }
+
+        addSocketConnection(socket: any){
+            var label = this.onNewConnection(socket) || uid();
+
+
+            this.socketConnections.push({
+                socket,
+                id: socket.id,
+                label
+            });
+
+            socket.on("disconnect", () => {
+                this.socketConnections = this.socketConnections.filter(s => {
+                    this.onDisconnect(s.socket);
+                    return s.id != socket.id;
+                });
+            })
+        }
+        broadcastData(data: any){
+            this.socketConnections.forEach(socket => {
+                socket.socket.emit("data", data);
+            })
+        }
+        broadcastEvent(event: string, data: any){
+            this.socketConnections.forEach(socket => {
+                socket.socket.emit(event, data);
+            })
+        }
+        emitData(socket: any, data: any){
+            switch (typeof socket) {
+                case "string":
+                    this.socketConnections.forEach(s => {
+                        if (s.label == socket) {
+                            s.socket.emit("data", data);
+                        }
+                    })
+                    break;
+                case "object":
+                    if(socket.label){
+                        socket.socket.emit("data", data);
+                    }else{
+                        socket.emit("data", data);
+                    }
+                    break;
+                default:
+                    socket.emit("data", data);
+                    break;
+                }
+        }
+        emitEvent(socket: any, event: string, data: any){
+            switch (typeof socket) {
+                case "string":
+                    this.socketConnections.forEach(s => {
+                        if (s.label == socket) {
+                            s.socket.emit(event, data);
+                        }
+                    })
+                    break;
+                case "object":
+                    if(socket.label){
+                        socket.socket.emit(event, data);
+                    }else{
+                        socket.emit(event, data);
+                    }
+                    break;
+                default:
+                    socket.emit(event, data);
+                    break;
+                }
+        }
+
+    }
     var ANVIL = {
         GameObject,
         Polygon,
@@ -2521,5 +2631,5 @@ const ANVIL = (() => {
 
         Input
     };
-    return ANVIL;
-})();
+//     return ANVIL;
+// })();
