@@ -2,49 +2,67 @@ const ANVIL = (() => {
     const Matter = require("matter-js");
     const GPU = require("gpu.js");
 
+    // Options interfaces
+
+    // For configuring basic properties of a GameObject
     interface GameObjectOptions {
-        physicsEnabled?: boolean;
-        physicsOptions?: PhysicsOptions;
+        physicsEnabled?: boolean; // set to true to enable physics, default is false
+        physicsOptions?: PhysicsOptions; // options passed to matter.js engine
     }
+
+    // For configuring the gravity of a scene
     interface Gravity extends Vector {
-        scale?: number;
+        scale?: number; // The magnitude of the gravitational acceleration. Set to 0 if you want a scene with physics but no gravity, default is 0.001
     }
+
+    // For configuring the properties of a polygon
     interface PolygonOptions extends GameObjectOptions {
-        points: Point[];
-        backgroundColor?: string;
+        points: Point[]; // a list of points that make up the polygon
+        backgroundColor: string; // CSS color, background color of the polygon
     }
+
+    // For configuring the properties of a sprite
     interface SpriteOptions extends GameObjectOptions {
-        url: string;
-        coordinates: Vec2;
-        width: number;
-        height: number;
+        url: string; // url of the image
+        coordinates: Vec2; // initial coordinates of the sprite
+        width: number; // width of the sprite
+        height: number; // height of the sprite
     }
-    interface SceneManagerOptions {
-        initialScene?: Scene;
-        canvas: HTMLCanvasElement;
-        width: number;
-        height: number;
+
+    // For configuring the properties of Scene Manager
+    interface SceneManagerOptions { 
+        initialScene?: Scene; // the scene to start with
+        canvas: HTMLCanvasElement; // the canvas to render to
+        width: number; // width of canvas (this will overwrite the canvas width)
+        height: number; // height of canvas (this will overwrite the canvas height)
     }
+
+    // For configuring the properties of a Scene
     interface SceneOptions {
-        fpsMonitoringEnabled?: boolean;
-        lighting?: boolean;
-        lightOptions?: lightingOptions;
-        GPUsettings?: GPUsettings;
-        physics?: boolean;
-        physicsOptions?: WorldPhysicsOptions;
-        update?: Function;
-        clear?: boolean;
-        bounds?: Vec2;
-        FPS_BUFFER_SIZE?: number;
-        bindCameraTo?: GameObject;
+        fpsMonitoringEnabled?: boolean; // set to true to enable an FPS counter in top-left, default is false
+        lighting?: boolean; // true to enable lighting, default is false
+        lightOptions?: lightingOptions; // options for lighting, default {} (empty object)
+        GPUsettings?: GPUsettings; // settings for GPU.js, default {} (empty object)
+        physics?: boolean; // set to true to enable physics (Uses matter.js under the hood), default is false
+        physicsOptions?: WorldPhysicsOptions; // options passed to matter.js engine
+        update?: Function; // function to run on every tick, default is an empty function
+        clear?: boolean; // set to false to disable clearing the canvas on every tick, default is true
+        bounds?: Vec2; // set the bounds of the scene, by default bounds are not enabled
+        FPS_BUFFER_SIZE?: number; // size of the buffer used to calculate FPS, default is 60
+        bindCameraTo?: GameObject; // bind the camera to a GameObject, by default camera is static
     }
+
+    // Configuring lights in a scene
     interface lightingOptions {
-        fog?: number;
-        ambient?: number;
+        fog?: number; // changes how light spreads, default is 1.3
+        ambient?: number; // ambient lighting of the scene, default is 0.2
     }
+
+    // Settings passed to GPU.js
     interface GPUsettings {
-        mode?: "dev" | "webgl" | "webgl2" | "headlessgl" | "cpu";
+        mode?: "dev" | "webgl" | "webgl2" | "headlessgl" | "cpu"; // mode to run GPU.js in, default is "webgl"
     }
+
     interface LightKernelOptions {
         pix: Uint8ClampedArray;
         width: number;
@@ -57,95 +75,121 @@ const ANVIL = (() => {
         fog: number;
         globalAlpha: number;
     }
+
+    // For configuring the properties of a World (matter.js)
+    // refer to matter.js documentation
+    // 
     interface WorldPhysicsOptions {
-        constraintIterations?: number;
-        detector?: any;
-        enableSleeping?: boolean;
-        gravity?: Gravity;
-        plugin?: any;
-        positionIterations?: number;
-        timing?: PhysicsTimingOptions;
-        velocityIterations?: number;
-        world?: Object;
+        constraintIterations?: number; // An integer Number that specifies the number of constraint iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance. The default value of 2 is usually very adequate. 
+        detector?: any; // A Matter.Detector instance, default is Matter.Detector
+        enableSleeping?: boolean; // A flag that specifies whether the engine should allow sleeping via the Matter.Sleeping module. Sleeping can improve stability and performance, but often at the expense of accuracy. default is false
+        gravity?: Gravity; // An optional gravitational acceleration applied to all bodies in engine.world on every update. default is { x: 0, y: 1, scale: 0.001 }
+        plugin?: any; // An object reserved for storing plugin-specific properties.
+        positionIterations?: number; // An integer Number that specifies the number of position iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance. The default value is 6  
+        timing?: PhysicsTimingOptions; // An object that specifies the timing systems to use for engine updates and rendering. default is { lastDelta: 1000 / 60, lastElapsed: 1000 / 60, timeScale: 1, timestamp: 0 }
+        velocityIterations?: number; // An integer Number that specifies the number of velocity iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance.        
+        world?: Object; // The root Matter.Composite instance that will contain all bodies, constraints and other composites to be simulated by this engine. default is a Matter.Composite with no bodies (Handled under the hood, do not worry about this)  
     }
     interface PhysicsTimingOptions {
-        lastDelta: number;
-        lastElapsed: number;
-        timeScale: number;
-        timestamp: number;
+        lastDelta: number; // A Number that represents the delta value used in the last engine update. default is 0
+        lastElapsed: number; // A Number that represents the total execution time elapsed during the last Engine.update in milliseconds. It is updated by timing from the start of the last Engine.update call until it ends. default is 0. This value will also include the total execution time of all event handlers directly or indirectly triggered by the engine update.
+        timeScale: number; // A Number that specifies the global scaling factor of time for all bodies. A value of 0 freezes the simulation. A value of 0.1 gives a slow-motion effect. A value of 1.2 gives a speed-up effect. default is 1       
+        timestamp: number; // A Number that specifies the current simulation-time in milliseconds starting from 0. It is incremented on every Engine.update by the given delta argument. default is 0   
     }
     interface PhysicsOptions {
-        angle?: number;
-        readonly angularSpeed?: number;
-        anglarVelocity?: number;
-        readonly area?: string;
-        readonly axes?: Vector;
-        bounds?: Bounds;
-        collisionFileter?: {
-            category?: number;
-            group?: number;
-            mask?: number;
+        angle?: number; // A Number specifying the angle of the body, in radians. default is 0
+        readonly angularSpeed?: number; // Read only. Use GameObject.body.setAngularSpeed to set. default is 0. The current rotational speed of the body.
+        anglarVelocity?: number; // Read only. Use Body.setAngularVelocity to set. default is 0. Gets the current rotational velocity of the body.
+        readonly area?: string; // Read only. Calculated automatically when vertices are set. A Number that measures the area of the body's convex hull.
+        readonly axes?: Vector; // Read only. Calculated automatically when vertices are set. An array of unique axis vectors (edge normals) used for collision detection. These are automatically calculated when vertices are set. They are constantly updated by Body.update during the simulation.
+        bounds?: Bounds; // A Bounds object that defines the AABB region for the body. It is automatically calculated when vertices are set and constantly updated by Body.update during simulation.        
+        collisionFileter?: { // An Object that specifies the collision filtering properties of this body.  See https://brm.io/matter-js/docs/classes/Body.html#property_collisionFilter
+            category?: number; // A bit field that specifies the collision category this body belongs to. The category value should have only one bit set, for example 0x0001. This means there are up to 32 unique collision categories available. See body.collisionFilter for more information. default is 1
+            group?: number; // An Integer Number, that specifies the collision group this body belongs to. See body.collisionFilter for more information. default is 0
+            mask?: number; // A bit mask that specifies the collision categories this body may collide with. See body.collisionFilter for more information. default is -1
 
         };
-        readonly deltaTime?: number;
-        readonly density?: number;
-        force?: Vector;
-        friction?: number;
-        frictionAir?: number;
-        frictionStatic?: number;
-        id?: number;
-        readonly inertia?: number;
-        readonly inverseInertia?: number;
-        readonly inverseMass?: number;
-        isSensor?: boolean;
-        readonly isSleeping?: boolean;
-        readonly isStatic?: boolean;
-        label?: string;
-        readonly mass?: number;
-        readonly motion?: number;
-        readonly parent?: Object;
-        readonly parts?: Object[];
-        readonly position?: Vector;
-        restitution?: number;
-        sleepThreshold?: number;
-        slop?: number;
-        readonly speed?: number;
-        timeScale?: number;
-        torque?: number;
-        readonly "type"?: string;
-        readonly velocity?: Vector;
-        readonly vertices?: Vector[];
+        readonly deltaTime?: number; // Read only. Updated during engine update. A Number that records the last delta time value used to update this body. Used to calculate speed and velocity. default is 1000 / 60
+        readonly density?: number; // Read only. Use GameObject.body.setDensity to set. A Number that defines the density of the body (mass per unit area). Mass will also be updated when set. default is 0.001
+        force?: Vector; // A Vector that accumulates the total force applied to the body for a single update. Force is zeroed after every Engine.update, so constant forces should be applied for every update they are needed. Apply force with GameObject.body.applyForce (https://brm.io/matter-js/docs/classes/Body.html#method_applyForce)
+        friction?: number; // A Number that defines the friction of the body. The value is always positive and is in the range (0, 1). A value of 0 means that the body may slide indefinitely. A value of 1 means the body may come to a stop almost instantly after a force is applied. The effects of the value may be non-linear. High values may be unstable depending on the body. The engine uses a Coulomb friction model including static and kinetic friction. Note that collision response is based on pairs of bodies, and that friction values are combined with the following formula: Math.min(bodyA.friction, bodyB.friction). default is 0.1
+        frictionAir?: number; // A Number that defines the air friction of the body (air resistance). A value of 0 means the body will never slow as it moves through space. The higher the value, the faster a body slows when moving through space. The effects of the value are non-linear. default is 0.01
+        frictionStatic?: number; // A Number that defines the static friction of the body (in the Coulomb friction model). A value of 0 means the body will never 'stick' when it is nearly stationary and only dynamic friction is used. The higher the value (e.g. 10), the more force it will take to initially get the body moving when nearly stationary. This value is multiplied with the friction property to make it easier to change friction and maintain an appropriate amount of static friction. default is 0.5
+        id?: number; // An integer Number uniquely identifying number generated in Body.create by Common.nextId.
+        readonly inertia?: number; // Read only. Automatically calculated when vertices, mass or density are set or set through GameObject.body.setInertia. A Number that defines the moment of inertia of the body. This is the second moment of area in two dimensions. Can be manually set to Infinity to prevent rotation of the body. See https://brm.io/matter-js/docs/classes/Body.html#method_setInertia.
+        readonly inverseInertia?: number; // Read only. Automatically calculated when vertices, mass or density are set or calculated by Body.setInertia. A Number that defines the inverse moment of inertia of the body (1 / inertia).
+        readonly inverseMass?: number; // Read only. Use GameObject.body.setMass to set. A Number that defines the inverse mass of the body (1 / mass).
+        isSensor?: boolean; // A flag that indicates whether a body is a sensor. Sensor triggers collision events, but doesn't react with colliding body physically. False by default.
+        readonly isSleeping?: boolean; // Read only. Use Matter.Sleeping.set to set. A flag that indicates whether the body is considered sleeping. A sleeping body acts similar to a static body, except it is only temporary and can be awoken. False by default.
+        readonly isStatic?: boolean; // Read only. Use GameObject.body.setStatic to set. A flag that indicates whether a body is considered static. A static body can never change position or angle and is completely fixed. False by default.
+        label?: string; // A String that defines the label property of the body. See https://brm.io/matter-js/docs/classes/Body.html#property_label
+        readonly mass?: number; // A Number that defines the mass of the body. Density will also be updated when set. Read only. Use GameObject.body.setMass to set. Calculated automatically from object properties
+        readonly motion?: number; // Read only. Calculated during engine update only when sleeping is enabled. A Number that loosely measures the amount of movement a body currently has. Derived from body.speed^2 + body.angularSpeed^2. See Sleeping.update. 0 by default.
+        readonly parent?: Object; // Read only. Updated by GameObject.body.setParts. A reference to the body that this is a part of. See body.parts. This is a self reference if the body is not a part of another body.
+        readonly parts?: Object[]; // Read only. Use Body.setParts to set. An array of bodies that make up this body. The first body in the array must always be a self reference to the current body instance. All bodies in the parts array together form a single rigid compound body. Parts are allowed to overlap, have gaps or holes or even form concave bodies. Parts themselves should never be added to a World, only the parent body should be. Use Body.setParts when setting parts to ensure correct updates of all properties.
+        readonly position?: Vector; // Read only. Use GameObject.body.setPosition to set. A Vector that specifies the current world-space position of the body. Default is { x: 0, y: 0 }
+        restitution?: number; // A Number that defines the restitution (elasticity) of the body. The value is always positive and is in the range (0, 1). A value of 0 means collisions may be perfectly inelastic and no bouncing may occur. A value of 0.8 means the body may bounce back with approximately 80% of its kinetic energy. Note that collision response is based on pairs of bodies, and that restitution values are combined with the following formula: Math.max(bodyA.restitution, bodyB.restitution). 0 by default.
+        sleepThreshold?: number; // A Number that defines the length of time during which this body must have near-zero velocity before it is set as sleeping by the Matter.Sleeping module (if sleeping is enabled by the engine). Default is 60.
+        slop?: number; // A Number that specifies a thin boundary around the body where it is allowed to slightly sink into other bodies. This is required for proper collision response, including friction and restitution effects. The default should generally suffice in most cases. You may need to decrease this value for very small bodies that are nearing the default value in scale. Default is 0.05.
+        readonly speed?: number; // Read only. Use GameObject.body.setVelocity to set. A Number that specifies the speed of the body. This value is always positive, representing the magnitude of velocity. 0 by default.
+        timeScale?: number; // A Number that specifies per-body time scaling. Defualt is 1.... to make time slower relative to other objects in the scene, set to a number less than 1. To make time faster relative to other objects in the scene, set to a number greater than 1.
+        torque?: number; // A Number that accumulates the total torque (turning force) applied to the body for a single update. See also Body.applyForce. Torque is zeroed after every Matter.Engine.update (Scene.engine), so constant torques should be applied for every update they are needed. Torques result in angular acceleration on every update, which depends on body inertia and the engine update delta. 0 by default.
+        readonly "type"?: string; // A String denoting the type of object. Should always be "body". Read only.
+        readonly velocity?: Vector; // Read only. Use Body.setVelocity to set. Equivalent to the magnitude of body.angularVelocity (always positive). { x: 0, y: 0 } by default.
+        readonly vertices?: Vector[]; // Read only. Use GameObject.body.setVertices or GameObject.body.setParts to set. See also Scene.Bodies.fromVertices(). An array of Vector objects that specify the convex hull of the rigid body. These should be provided about the origin (0, 0). E.g. [{ x: 0, y: 0 }, { x: 25, y: 50 }, { x: 50, y: 0 }]. Vertices must always be convex, in clockwise order and must not contain any duplicate points. Do not worry about this, it is handled under the hood. If the polygon is not convex and is built using the Polygon class, the points will be deconstructed into multiple convex polygons.
     }
+
+    // Passed to the draw function of a GameObject
     interface DrawOptions {
-        canvas?: HTMLCanvasElement;
-        ctx: CanvasRenderingContext2D;
-        camera: Vec2;
+        canvas?: HTMLCanvasElement; // Used for positional calculations.
+        ctx: CanvasRenderingContext2D; // Canvas rendering context that the object draws with
+        camera: Vec2; // Position of the camera in the scene
     }
+
+    // Bounds defining the boundaries of a physics body
     type Bounds = {
-        min: Vec2;
-        max: Vec2;
+        min: Vec2; // minimum bounds
+        max: Vec2; // maximum bounds
     }
-    type Point = Vec2;
-    type Vec2 = [number, number];
+    type Point = Vec2; // alias for a Vec2, for easier readability
+    type Vec2 = [number, number]; // 2D vector
+
+    // Same as Vec2, but with a different structure for compatability with matter.js
     type Vertex = {
         x: number;
         y: number;
     };
+
+    // Alias for Vertex
     type Vector = Vertex;
+
+    // A projection of a polygon onto an axis, used for collision detection
     type Projection = {
         min: number;
         max: number;
     };
+
+    // Defines a collision between two objects
+    // [object1, object2, function to run on collision, function to run on seperation, active]
     type CollisionMonitor = [GameObject, GameObject, Function, Function, boolean];
 
 
-
+    // Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
     function GPULightingKernel(this: any, pix: Uint8ClampedArray, width: number, height: number, lights: Array<number>, numLights: number, dlights: Array<number>, numDlights: number, ambient: number, fog: number, globalAlpha: number) {
+        // aliases for coordinates (loop friendly)
         const i = this.thread.y;
         const j = this.thread.x;
+
+        // calculates the rows down from the top of the canvas
         var rowsDown = height - i;
+
+        // calculates the pixel number
         var pixNum = ((width * rowsDown) + j) * 4;
+
+        // initial brightness (format is r,g,b)
         var brightness = [ambient, ambient, ambient];
+
+        // loop over each light, calculate brightness of each pixel based on proximity to the light, how far the light spreads (diffuse), and the strength of the light
         for (var k = 0; k < numLights; k++) {
             var ln = k * 7;
             var attenuation = (1 - Math.pow(Math.min(distance([j, i], [lights[ln], height - lights[ln + 1]]), lights[ln + 3]) / lights[ln + 3], fog));
@@ -154,6 +198,8 @@ const ANVIL = (() => {
             brightness[1] += attenuation * strength * (lights[ln + 5] / 255);
             brightness[2] += attenuation * strength * (lights[ln + 6] / 255);
         }
+
+        // loops over each directional light, calculates brightness of each pixel based on proximity to the light, how far the light spreads (diffuse), the angle of the light, and the strength of the light
         for (var d = 0; d < numDlights; d++) {
             var ln = d * 9;
             var angle = dlights[ln];
@@ -177,7 +223,7 @@ const ANVIL = (() => {
 
             const angleDiff = Math.acos(Math.cos(angleToLight - lightDir));
 
-
+            // if the pixel is within the spread of the light, calculate the brightness of the pixel
             if (angleDiff <= spread / 2) {
                 const diffuseFactor = Math.max(0, Math.cos(angleDiff) * (1 - (dist / diffuse)));
                 brightness[0] += diffuseFactor * intensity * (redL / 255);
@@ -185,11 +231,13 @@ const ANVIL = (() => {
                 brightness[2] += diffuseFactor * intensity * (blueL / 255);
             }
         }
-
+        // apply brightness to the pixel
         var red = ((pix[pixNum] / 255) * brightness[0]) * globalAlpha;
         var green = ((pix[pixNum + 1] / 255) * brightness[1]) * globalAlpha;
         var blue = ((pix[pixNum + 2] / 255) * brightness[2]) * globalAlpha;
         var alpha = (pix[pixNum + 3] / 255) * globalAlpha;
+
+        // return the color
         this.color(
             red, green, blue, alpha
         )
@@ -302,6 +350,7 @@ const ANVIL = (() => {
             distance(points[2], points[3]),
             distance(points[3], points[0])
         ];
+        // A square has 4 equal side lengths, Set() removes duplicates
         const uniqueSideLengths = new Set(sideLengths);
         return uniqueSideLengths.size === 1;
     }
@@ -362,6 +411,7 @@ const ANVIL = (() => {
 
     // checks to see if two polygons are colliding (used for convex polygons)
     function checkSquareCollision(poly1: Point[], poly2: Point[]): boolean {
+        // Helper function to get the axes of a polygon
         function getAxes(poly: Point[]): Array<Vec2> {
             const axes: Array<Vec2> = [];
             for (let i = 0; i < poly.length; i++) {
@@ -373,7 +423,7 @@ const ANVIL = (() => {
             }
             return axes;
         }
-
+        // generates a projection of the polygon onto an axis
         function project(poly: Point[], axis: Vec2): Projection {
             let min = Infinity;
             let max = -Infinity;
@@ -384,20 +434,24 @@ const ANVIL = (() => {
             }
             return { min, max };
         }
-
+        // checks to see if two projections overlap
         function overlap(projection1: Projection, projection2: Projection): Boolean {
             return (
                 projection1.max >= projection2.min && projection2.max >= projection1.min
             );
         }
 
+        // get the axes of each polygon
         const axes1 = getAxes(poly1);
         const axes2 = getAxes(poly2);
 
+        // loop over each axis of each polygon
         for (const axis of [...axes1, ...axes2]) {
+            // calculate the projection of each polygon onto the axis
             const projection1: Projection = project(poly1, axis);
             const projection2: Projection = project(poly2, axis);
 
+            // check if the projections overlap
             if (!overlap(projection1, projection2)) {
                 // If there is any axis of separation, the polygons do not intersect
                 return false;
@@ -467,20 +521,20 @@ const ANVIL = (() => {
 
 
     class GameObject {
-        physicsEnabled: boolean;
-        physicsOptions: PhysicsOptions;
-        id: string;
-        bounds: Array<number>;
-        boundsActive: boolean;
-        pinned: boolean;
-        _state: { [key: string]: any };
-        square: boolean;
-        hitbox: Vec2;
-        body: any;
-        points: Array<Vec2>;
-        coordinates: Vec2;
-        type: string;
-        convex: boolean;
+        physicsEnabled: boolean; // boolean if physics is enabled on the object
+        physicsOptions: PhysicsOptions; // options for the physics engine
+        id: string; // unique ID for each object
+        bounds: Array<number>; // how the object is bounded in the scene (set with scene.setBoundaries())
+        boundsActive: boolean; // are the bounds active on this object?
+        pinned: boolean; // does nothing!
+        _state: { [key: string]: any }; // used for state() and returnState(), builds states that are returnable. Stacking two states is destructive.
+        square: boolean; // True if the object is a square, false otherwise
+        hitbox: Vec2; // Hitbox of the object, if the object is a square
+        body: any; // reference to the physics body (matter.js). Empty if physics is not enabled
+        points: Array<Vec2>; // points of the object (used for collision detection)
+        coordinates: Vec2; // coordinates of the object, or the top left most point of the object 
+        type: string; // Type of the object, either "gameObject", "sprite", or "polygon"
+        convex: boolean; // true if the object is convex, false otherwise
         [key: string]: any;
         constructor(options: GameObjectOptions = {}) {
             // will physics work on this object?
@@ -576,9 +630,13 @@ const ANVIL = (() => {
             this.bounds = bounds;
             this.boundsActive = true;
         }
+
+        // disables bounds on that object
         disableBounds() {
             this.boundsActive = false;
         }
+
+        // activates bounds on that object
         activateBounds() {
             this.boundsActive = true;
         }
@@ -591,9 +649,13 @@ const ANVIL = (() => {
             Matter.Body.setPosition(this.body, Matter.Vector.create(newX, newY));
             return true;
         }
+
+        // returns the width of the object. Useful for polygons, as polygons do not have a reliable width property
         getWidth(): number {
             return 0;
         }
+
+        // returns the height of the object. Useful for polygons, as polygons do not have a reliable height property
         getHeight(): number {
             return 0;
         }
@@ -665,10 +727,14 @@ const ANVIL = (() => {
                 this.hitbox = [this.points[0][0] - this.points[1][0], this.points[0][1] - this.points[1][1]];
             }
         }
+
+        // sets the hitbox of the polygon... useful if the polygon is concave and you want reliable collision detection. Recommended to use as poly.setHitBox(poly.getWidth(), poly.getHeight())
         setHitBox(width: number, height: number): void {
             this.hitbox = [width, height];
             this.square = true;
         }
+
+        // draws the polygon onto the provided drawing context, in accordance with the camera position. This is handled automatically with scene and scene managers
         draw(options: DrawOptions): void {
             var { ctx, camera } = options;
             ctx.fillStyle = this.backgroundColor;
@@ -682,6 +748,8 @@ const ANVIL = (() => {
             ctx.fill();
 
         }
+
+        // returns the vertices of the polygon.
         polify(): Point[] {
             return this.points;
         }
@@ -1468,21 +1536,6 @@ const ANVIL = (() => {
     }
 
     var ANVIL = {
-        GPULightingKernel,
-        isConvex,
-        instanceOfDirectionalLight,
-        getCentroid,
-        calculateFPS,
-        findTopLeftMostPoint,
-        isSquare,
-        distance,
-        getBoundingBox,
-        sumArrays,
-        multArrays,
-        uid,
-        checkSquareCollision,
-        checkCollision,
-
         GameObject,
         Polygon,
         Sprite,

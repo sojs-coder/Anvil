@@ -10,14 +10,16 @@
   <canvas id="lightingCanvas" width="800" height="600"></canvas>
   <script>
 
+    // Pull out the Scene, Polygon, Light, and SceneManager classes from the ANVIL object
+    const { Scene, Polygon, Light, SceneManager } = ANVIL;
+
+    // get the canvas
     const lightingCanvas = document.getElementById("lightingCanvas");
+
+    // create a scene with lighting and FPS monitoring enabled
     const lightingScene = new Scene({
-      width: 800,
-      height: 600,
-      canvas: lightingCanvas,
       lighting: true,
       fpsMonitoringEnabled: true,
-      start: true,
     });
 
     // Create and add polygons
@@ -34,11 +36,18 @@
     lightingScene.addObject(polygon2);
 
     // Create and add lights
+    // 1 light at [50, 50] with radius 100, strength 0.8 and colored white, 1 at [250, 250] with radius 150, strength 0.6 and colored white
     const light1 = new Light([50, 50], 100, 0.8, [255, 255, 255]);
     const light2 = new Light([250, 250], 150, 0.6, [255, 255, 255]);
 
     lightingScene.addLight(light1);
     lightingScene.addLight(light2);
+
+    // Create a SceneManager and pass it the canvas and scene
+    var manager = new SceneManager({
+      canvas: lightingCanvas,
+      initialScene: lightingScene,
+    });
   </script>
 </body>
 </html>
