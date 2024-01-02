@@ -4,24 +4,82 @@ const ANVIL = (() => {
 
     // Options interfaces
 
-    // For configuring basic properties of a GameObject
+    /**
+     * For configuring basic properties of a GameObject
+     * 
+     * @interface GameObjectOptions
+     * @property {boolean} [physicsEnabled=false] - Set to true to enable physics, default is false
+     * @property {PhysicsOptions} [physicsOptions={}] - Options passed to matter.js engine
+     * @example
+     * ```js
+     *  const options: GameObjectOptions = {
+     *      physicsEnabled: true,
+     *      physicsOptions: {
+     *      restitution: 0.5
+     *  }
+     * ```
+     */
     interface GameObjectOptions {
         physicsEnabled?: boolean; // set to true to enable physics, default is false
         physicsOptions?: PhysicsOptions; // options passed to matter.js engine
     }
 
-    // For configuring the gravity of a scene
+    /**
+     * For configuring the gravity of a scene
+     * 
+     * @interface Gravity
+     * @property {number} [scale=0.001] - The magnitude of the gravitational acceleration. Set to 0 if you want a scene with physics but no gravity, default is 0.001
+     * @example
+     * ```js
+     *  const gravity: Gravity = {
+     *      scale: 0.001
+     *      x: 0,
+     *      y: 1
+     *  }
+     * ```
+     */
     interface Gravity extends Vector {
         scale?: number; // The magnitude of the gravitational acceleration. Set to 0 if you want a scene with physics but no gravity, default is 0.001
     }
 
-    // For configuring the properties of a polygon
+    /**
+     * For configuring the properties of a polygon
+     * 
+     * @interface PolygonOptions
+     * @property {Point[]} points - A list of points that make up the polygon
+     * @property {string} backgroundColor - CSS color, background color of the polygon
+     * @example
+     * ```js
+     *  const options: PolygonOptions = {
+     *      points: [[0, 0], [0, 100], [100, 100], [100, 0]],
+     *      backgroundColor: "red"
+     *  }
+     * ```
+     */
     interface PolygonOptions extends GameObjectOptions {
-        points: Point[]; // a list of points that make up the polygon
+        points: Point[]; // A list of points that make up the polygon
         backgroundColor: string; // CSS color, background color of the polygon
     }
 
     // For configuring the properties of a sprite
+    /**
+     * For configuring the properties of a sprite
+     * 
+     * @interface SpriteOptions
+     * @property {string} url - Url of the image
+     * @property {Vec2} coordinates - Initial coordinates of the sprite
+     * @property {number} width - Width of the sprite
+     * @property {number} height - Height of the sprite
+     * @example
+     * ```js
+     *  const options: SpriteOptions = {
+     *      url: "https://i.imgur.com/0xq2Mgj.png",
+     *      coordinates: [0, 0],
+     *      width: 100,
+     *      height: 100
+     *  }
+     * ```
+     */
     interface SpriteOptions extends GameObjectOptions {
         url: string; // url of the image
         coordinates: Vec2; // initial coordinates of the sprite
@@ -30,14 +88,77 @@ const ANVIL = (() => {
     }
 
     // For configuring the properties of Scene Manager
+    /**
+     * For configuring the properties of Scene Manager
+     * 
+     * @interface SceneManagerOptions
+     * @property {Scene} [initialScene] - The scene to start with
+     * @property {HTMLCanvasElement} canvas - The canvas to render to
+     * @property {number} width - Width of canvas (this will overwrite the canvas width)
+     * @property {number} height - Height of canvas (this will overwrite the canvas height)
+     * @example
+     * ```js
+     *  const options: SceneManagerOptions = {
+     *      initialScene: scene,
+     *      canvas: document.getElementById("canvas"),
+     *      width: 500,
+     *      height: 500
+     *  }
+     * ```
+     */
     interface SceneManagerOptions { 
-        initialScene?: Scene; // the scene to start with
-        canvas: HTMLCanvasElement; // the canvas to render to
-        width: number; // width of canvas (this will overwrite the canvas width)
-        height: number; // height of canvas (this will overwrite the canvas height)
+        initialScene?: Scene; // The scene to start with
+        canvas: HTMLCanvasElement; // The canvas to render to
+        width: number; // Width of canvas (this will overwrite the canvas width)
+        height: number; // Height of canvas (this will overwrite the canvas height)
     }
 
     // For configuring the properties of a Scene
+    /**
+     * For configuring the properties of a Scene
+     * 
+     * @interface SceneOptions
+     * @property {boolean} [fpsMonitoringEnabled=false] - Set to true to enable an FPS counter in top-left, default is false
+     * @property {boolean} [lighting=false] - True to enable lighting, default is false
+     * @property {lightingOptions} [lightOptions={}] - Options for lighting, default {} (empty object)
+     * @property {GPUsettings} [GPUsettings={}] - Settings for GPU.js, default {} (empty object)
+     * @property {boolean} [physics=false] - Set to true to enable physics (Uses matter.js under the hood), default is false
+     * @property {WorldPhysicsOptions} [physicsOptions={}] - Options passed to matter.js engine
+     * @property {Function} [update] - Function to run on every tick, default is an empty function
+     * @property {boolean} [clear=true] - Set to false to disable clearing the canvas on every tick, default is true
+     * @property {Vec2} [bounds] - Set the bounds of the scene, by default bounds are not enabled
+     * @property {number} [FPS_BUFFER_SIZE=60] - Size of the buffer used to calculate FPS, default is 60
+     * @property {GameObject} [bindCameraTo] - Bind the camera to a GameObject, by default camera is static
+     * @example
+     * ```js
+     *  const options: SceneOptions = {
+     *      fpsMonitoringEnabled: true,
+     *      lighting: true,
+     *      lightOptions: {
+     *          fog: 1.3,
+     *          ambient: 0.2
+     *      },
+     *      GPUsettings: {
+     *           mode: "webgl"
+     *      },
+     *      physics: true,
+     *      physicsOptions: {
+     *           gravity: {
+     *              x: 0,
+     *              y: 1,
+     *              scale: 0.001
+     *          }
+     *      },
+     *      update: () => {
+     *          // do something
+     *      },
+     *      clear: false,
+     *      bounds: [500, 500],
+     *      FPS_BUFFER_SIZE: 60,
+     *      bindCameraTo: gameObject
+     *  }
+     * ```
+     */
     interface SceneOptions {
         fpsMonitoringEnabled?: boolean; // set to true to enable an FPS counter in top-left, default is false
         lighting?: boolean; // true to enable lighting, default is false
@@ -53,12 +174,38 @@ const ANVIL = (() => {
     }
 
     // Configuring lights in a scene
+    /**
+     * For configuring lights in a scene
+     * 
+     * @interface lightingOptions
+     * @property {number} [fog=1.3] - Changes how light spreads, default is 1.3
+     * @property {number} [ambient=0.2] - Ambient lighting of the scene, default is 0.2
+     * @example
+     * ```js
+     *  const options: lightingOptions = {
+     *      fog: 1.3,
+     *      ambient: 0.2
+     *  }
+     * ```
+     */
     interface lightingOptions {
         fog?: number; // changes how light spreads, default is 1.3
         ambient?: number; // ambient lighting of the scene, default is 0.2
     }
 
     // Settings passed to GPU.js
+    /**
+     * Settings passed to GPU.js
+     * 
+     * @interface GPUsettings
+     * @property {string} [mode="webgl"] - Mode to run GPU.js in, default is "webgl"
+     * @example
+     * ```js
+     *  const options: GPUsettings = {
+     *      mode: "webgl"
+     *  }
+     * ```
+     */
     interface GPUsettings {
         mode?: "dev" | "webgl" | "webgl2" | "headlessgl" | "cpu"; // mode to run GPU.js in, default is "webgl"
     }
@@ -76,9 +223,21 @@ const ANVIL = (() => {
         globalAlpha: number;
     }
 
-    // For configuring the properties of a World (matter.js)
-    // refer to matter.js documentation
-    // 
+    /**
+     * For configuring the properties of a World (matter.js)
+     * Refer to matter.js documentation 
+     * 
+     * @interface WorldPhysicsOptions
+     * @property {number} [constraintIterations=2] - An integer Number that specifies the number of constraint iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance. The default value of 2 is usually very adequate.
+     * @property {any} [detector=Matter.Detector] - A Matter.Detector instance, default is Matter.Detector
+     * @property {boolean} [enableSleeping=false] - A flag that specifies whether the engine should allow sleeping via the Matter.Sleeping module. Sleeping can improve stability and performance, but often at the expense of accuracy. default is false
+     * @property {Gravity} [gravity={ x: 0, y: 1, scale: 0.001 }] - An optional gravitational acceleration applied to all bodies in engine.world on every update. default is { x: 0, y: 1, scale: 0.001 }
+     * @property {any} [plugin={}] - An object reserved for storing plugin-specific properties.
+     * @property {number} [positionIterations=6] - An integer Number that specifies the number of position iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance. The default value is 6
+     * @property {PhysicsTimingOptions} [timing={ lastDelta: 1000 / 60, lastElapsed: 1000 / 60, timeScale: 1, timestamp: 0 }] - An object that specifies the timing systems to use for engine updates and rendering. default is { lastDelta: 1000 / 60, lastElapsed: 1000 / 60, timeScale: 1, timestamp: 0 }
+     * @property {number} [velocityIterations=4] - An integer Number that specifies the number of velocity iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance.
+     * @property {Object} [world={}] - The root Matter.Composite instance that will contain all bodies, constraints and other composites to be simulated by this engine. default is a Matter.Composite with no bodies (Handled under the hood, do not worry about this)
+     */
     interface WorldPhysicsOptions {
         constraintIterations?: number; // An integer Number that specifies the number of constraint iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance. The default value of 2 is usually very adequate. 
         detector?: any; // A Matter.Detector instance, default is Matter.Detector
@@ -90,12 +249,64 @@ const ANVIL = (() => {
         velocityIterations?: number; // An integer Number that specifies the number of velocity iterations to perform each update. The higher the value, the higher quality the simulation will be at the expense of performance.        
         world?: Object; // The root Matter.Composite instance that will contain all bodies, constraints and other composites to be simulated by this engine. default is a Matter.Composite with no bodies (Handled under the hood, do not worry about this)  
     }
+
+    /**
+     * For configuring the timing systems to use for engine updates and rendering
+     * 
+     * @interface PhysicsTimingOptions
+     * @property {number} [lastDelta=1000 / 60] - A Number that represents the delta value used in the last engine update. default is 0
+     * @property {number} [lastElapsed=1000 / 60] - A Number that represents the total execution time elapsed during the last Engine.update in milliseconds. It is updated by timing from the start of the last Engine.update call until it ends. default is 0. This value will also include the total execution time of all event handlers directly or indirectly triggered by the engine update.
+     * @property {number} [timeScale=1] - A Number that specifies the global scaling factor of time for all bodies. A value of 0 freezes the simulation. A value of 0.1 gives a slow-motion effect. A value of 1.2 gives a speed-up effect. default is 1
+     * @property {number} [timestamp=0] - A Number that specifies the current simulation-time in milliseconds starting from 0. It is incremented on every Engine.update by the given delta argument. default is 0
+     */
     interface PhysicsTimingOptions {
         lastDelta: number; // A Number that represents the delta value used in the last engine update. default is 0
         lastElapsed: number; // A Number that represents the total execution time elapsed during the last Engine.update in milliseconds. It is updated by timing from the start of the last Engine.update call until it ends. default is 0. This value will also include the total execution time of all event handlers directly or indirectly triggered by the engine update.
         timeScale: number; // A Number that specifies the global scaling factor of time for all bodies. A value of 0 freezes the simulation. A value of 0.1 gives a slow-motion effect. A value of 1.2 gives a speed-up effect. default is 1       
         timestamp: number; // A Number that specifies the current simulation-time in milliseconds starting from 0. It is incremented on every Engine.update by the given delta argument. default is 0   
     }
+
+    /**
+     * For configuring the phyisical properties of GameObjects in a scene
+     * 
+     * @interface PhysicsOptions
+     * @property {number} [angle=0] - A Number specifying the angle of the body, in radians. default is 0
+     * @property {number} [angularSpeed=0] - Read only. Use GameObject.body.setAngularSpeed to set. default is 0. The current rotational speed of the body.
+     * @property {number} [anglarVelocity=0] - Read only. Use Body.setAngularVelocity to set. default is 0. Gets the current rotational velocity of the body.
+     * @property {string} [area] - Read only. Calculated automatically when vertices are set. A Number that measures the area of the body's convex hull.
+     * @property {Vector} [axes] - Read only. Calculated automatically when vertices are set. An array of unique axis vectors (edge normals) used for collision detection. These are automatically calculated when vertices are set. They are constantly updated by Body.update during the simulation.
+     * @property {Bounds} [bounds] - A Bounds object that defines the AABB region for the body. It is automatically calculated when vertices are set and constantly updated by Body.update during simulation.
+     * @property {Object} [collisionFileter] - An Object that specifies the collision filtering properties of this body.  See https://brm.io/matter-js/docs/classes/Body.html#property_collisionFilter
+     * @property {number} [collisionFileter.category=1] - A bit field that specifies the collision category this body belongs to. The category value should have only one bit set, for example 0x0001. This means there are up to 32 unique collision categories available. See body.collisionFilter for more information. default is 1
+     * @property {number} [collisionFileter.group=0] - An Integer Number, that specifies the collision group this body belongs to. See body.collisionFilter for more information. default is 0
+     * @property {number} [collisionFileter.mask=-1] - A bit mask that specifies the collision categories this body may collide with. See body.collisionFilter for more information. default is -1
+     * @property {number} [deltaTime=1000 / 60] - Read only. Updated during engine update. A Number that records the last delta time value used to update this body. Used to calculate speed and velocity. default is 1000 / 60
+     * @property {number} [density=0.001] - Read only. Use GameObject.body.setDensity to set. A Number that defines the density of the body (mass per unit area). Mass will also be updated when set. default is 0.001
+     * @property {Vector} [force] - A Vector that accumulates the total force applied to the body for a single update. Force is zeroed after every Engine.update, so constant forces should be applied for every update they are needed. Apply force with GameObject.body.applyForce (https://brm.io/matter-js/docs/classes/Body.html#method_applyForce)
+     * @property {number} [friction=0.1] - A Number that defines the friction of the body. The value is always positive and is in the range (0, 1). A value of 0 means that the body may slide indefinitely. A value of 1 means the body may come to a stop almost instantly after a force is applied. The effects of the value may be non-linear. High values may be unstable depending on the body. The engine uses a Coulomb friction model including static and kinetic friction. Note that collision response is based on pairs of bodies, and that friction values are combined with the following formula: Math.min(bodyA.friction, bodyB.friction). default is 0.1
+     * @property {number} [frictionAir=0.01] - A Number that defines the air friction of the body (air resistance). A value of 0 means the body will never slow as it moves through space. The higher the value, the faster a body slows when moving through space. The effects of the value are non-linear. default is 0.01
+     * @property {number} [frictionStatic=0.5] - A Number that defines the static friction of the body (in the Coulomb friction model). A value of 0 means the body will never 'stick' when it is nearly stationary and only dynamic friction is used. The higher the value (e.g. 10), the more force it will take to initially get the body moving when nearly stationary. This value is multiplied with the friction property to make it easier to change friction and maintain an appropriate amount of static friction. default is 0.5
+     * @property {number} [id] - An integer Number uniquely identifying number generated in Body.create by Common.nextId.
+     * @property {number} [inertia] - Read only. Automatically calculated when vertices, mass or density are set or set through GameObject.body.setInertia. A Number that defines the moment of inertia of the body. This is the second moment of area in two dimensions. Can be manually set to Infinity to prevent rotation of the body. See https://brm.io/matter-js/docs/classes/Body.html#method_setInertia.
+     * @property {number} [inverseInertia] - Read only. Automatically calculated when vertices, mass or density are set or calculated by Body.setInertia. A Number that defines the inverse moment of inertia of the body (1 / inertia).
+     * @property {number} [inverseMass] - Read only. Use GameObject.body.setMass to set. A Number that defines the inverse mass of the body (1 / mass).
+     * @property {boolean} [isSensor=false] - A flag that indicates whether a body is a sensor. Sensor triggers collision events, but doesn't react with colliding body physically. False by default.
+     * @property {boolean} [isSleeping] - Read only. Use Matter.Sleeping.set to set. A flag that indicates whether the body is considered sleeping. A sleeping body acts similar to a static body, except it is only temporary and can be awoken. False by default.
+     * @property {boolean} [isStatic] - Read only. Use GameObject.body.setStatic to set. A flag that indicates whether a body is considered static. A static body can never change position or angle and is completely fixed. False by default.
+     * @property {string} [label] - A String that defines the label property of the body. See https://brm.io/matter-js/docs/classes/Body.html#property_label
+     * @property {number} [mass] - Read only. Use GameObject.body.setMass to set. Calculated automatically from object properties
+     * @property {number} [motion] - Read only. Calculated during engine update only when sleeping is enabled. A Number that loosely measures the amount of movement a body currently has. Derived from body.speed^2 + body.angularSpeed^2. See Sleeping.update. 0 by default.
+     * @property {Object} [parent] - Read only. Updated by GameObject.body.setParts. A reference to the body that this is a part of. See body.parts. This is a self reference if the body is not a part of another body.
+     * @property {Object[]} [parts] - Read only. Use Body.setParts to set. An array of bodies that make up this body. The first body in the array must always be a self reference to the current body instance. All bodies in the parts array together form a single rigid compound body. Parts are allowed to overlap, have gaps or holes or even form concave bodies. Parts themselves should never be added to a World, only the parent body should be. Use Body.setParts when setting parts to ensure correct updates of all properties.
+     * @property {Vector} [position] - Read only. Use GameObject.body.setPosition to set. A Vector that specifies the current world-space position of the body. Default is { x: 0, y: 0 }
+     * @property {number} [restitution=0] - A Number that defines the restitution (elasticity) of the body. The value is always positive and is in the range (0, 1). A value of 0 means collisions may be perfectly inelastic and no bouncing may occur. A value of 0.8 means the body may bounce back with approximately 80% of its kinetic energy. Note that collision response is based on pairs of bodies, and that restitution values are combined with the following formula: Math.max(bodyA.restitution, bodyB.restitution). 0 by default.
+     * @property {number} [sleepThreshold=60] - A Number that defines the length of time during which this body must have near-zero velocity before it is set as sleeping by the Matter.Sleeping module (if sleeping is enabled by the engine). Default is 60.
+     * @property {number} [slop=0.05] - A Number that specifies a thin boundary around the body where it is allowed to slightly sink into other bodies. This is required for proper collision response, including friction and restitution effects. The default should generally suffice in most cases. You may need to decrease this value for very small bodies that are nearing the default value in scale. Default is 0.05.
+     * @property {number} [speed] - Read only. Use GameObject.body.setVelocity to set. A Number that specifies the speed of the body. This value is always positive, representing the magnitude of velocity. 0 by default.
+     * @property {number} [timeScale=1] - A Number that specifies per-body time scaling. Defualt is 1.... to make time slower relative to other objects in the scene, set to a number less than 1. To make time faster relative to other objects in the scene, set to a number greater than 1.
+     * @property {number} [torque] - A Number that accumulates the total torque (turning force) applied to the body for a single update. See also Body.applyForce. Torque is zeroed after every Matter.Engine.update (Scene.engine), so constant torques should be applied for every update they are needed. Torques result in angular acceleration on every update, which depends on body inertia and the engine update delta. 0 by default.
+     * @property {Vector} [velocity] - Read only. Use GameObject.body.setVelocity to set. A Vector that specifies the current world-space velocity of the body. Default is { x: 0, y: 0 }
+     */
     interface PhysicsOptions {
         angle?: number; // A Number specifying the angle of the body, in radians. default is 0
         readonly angularSpeed?: number; // Read only. Use GameObject.body.setAngularSpeed to set. default is 0. The current rotational speed of the body.
@@ -140,6 +351,23 @@ const ANVIL = (() => {
     }
 
     // Passed to the draw function of a GameObject
+    /**
+     * Passed to the draw function of a GameObject
+     * 
+     * @interface DrawOptions
+     * @property {HTMLCanvasElement} [canvas] - Used for positional calculations.
+     * @property {CanvasRenderingContext2D} ctx - Canvas rendering context that the object draws with
+     * @property {Vec2} camera - Position of the camera in the scene
+     * 
+     * @example
+     * ```js
+     *  const options: DrawOptions = {
+     *      canvas: document.getElementById("canvas") as HTMLCanvasElement,
+     *      ctx: document.getElementById("canvas").getContext("2d"),
+     *      camera: [0, 0]
+     *  }
+     * ```
+     */
     interface DrawOptions {
         canvas?: HTMLCanvasElement; // Used for positional calculations.
         ctx: CanvasRenderingContext2D; // Canvas rendering context that the object draws with
@@ -147,23 +375,60 @@ const ANVIL = (() => {
     }
 
     // Bounds defining the boundaries of a physics body
+    /**
+     * Bounds defining the boundaries of a physics body
+     * 
+     * @interface Bounds
+     * @property {Vec2} min - minimum bounds
+     * @property {Vec2} max - maximum bounds
+     */
     type Bounds = {
         min: Vec2; // minimum bounds
         max: Vec2; // maximum bounds
     }
+
+    /**
+     * An alias for Vec2
+     * 
+     * @type {Point}
+     * @alias Vec2
+     */
     type Point = Vec2; // alias for a Vec2, for easier readability
+
+    /**
+     * A 2D vector
+     * @type {Vec2}
+     */
     type Vec2 = [number, number]; // 2D vector
 
     // Same as Vec2, but with a different structure for compatability with matter.js
+    /**
+     * Same as Vec2, but with a different structure for compatability with matter.js
+     * 
+     * @type {Vector}
+     */
     type Vertex = {
         x: number;
         y: number;
     };
 
     // Alias for Vertex
+    /**
+     * Alias for Vertex
+     * 
+     * @type {Vector}
+     * @alias Vertex
+     */
     type Vector = Vertex;
 
     // A projection of a polygon onto an axis, used for collision detection
+    /**
+     * A projection of a polygon onto an axis, used for collision detection
+     * 
+     * @type {Projection}
+     * @property {number} min - minimum projection
+     * @property {number} max - maximum projection
+     */
     type Projection = {
         min: number;
         max: number;
@@ -171,10 +436,33 @@ const ANVIL = (() => {
 
     // Defines a collision between two objects
     // [object1, object2, function to run on collision, function to run on seperation, active]
+    /**
+     * Defines a collision between two objects
+     * 
+     * @type {CollisionMonitor}
+     * @property {GameObject} 0 - First object
+     * @property {GameObject} 1 - Second object
+     * @property {Function} 2 - Function to run on collision
+     * @property {Function} 3 - Function to run on seperation
+     * @property {boolean} 4 - Whether the collision is active
+     */
     type CollisionMonitor = [GameObject, GameObject, Function, Function, boolean];
 
 
     // Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
+    /**
+     * Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
+     * @param pix Uint8ClampedArray of the pixels of the canvas
+     * @param width Width of the canvas
+     * @param height Height of the canvas
+     * @param lights Array of lights in the scene (formatted)
+     * @param numLights Number of lights in the scene
+     * @param dlights Array of directional lights in the scene (formatted)
+     * @param numDlights Number of directional lights in the scene
+     * @param ambient Ambient lighting in the scene
+     * @param fog Constant that defines how lights spread in the scene
+     * @param globalAlpha Contant transparency of the scene
+     */
     function GPULightingKernel(this: any, pix: Uint8ClampedArray, width: number, height: number, lights: Array<number>, numLights: number, dlights: Array<number>, numDlights: number, ambient: number, fog: number, globalAlpha: number) {
         // aliases for coordinates (loop friendly)
         const i = this.thread.y;
@@ -245,6 +533,12 @@ const ANVIL = (() => {
     }
 
     // checks if a polygon is convex
+    /**
+     * Checks if a polygon is convex
+     * 
+     * @param points List of points that make up the polygon
+     * @returns Returns true of the polygon is convex, false if it is concave
+     */
     function isConvex(points: Point[]): boolean {
         if (points.length < 3) {
             // A polygon must have at least 3 points
@@ -285,11 +579,23 @@ const ANVIL = (() => {
         return true;
     }
 
+    /**
+     * Checks to see if a light is a directional light or not
+     * 
+     * @param light Light instnace to check
+     * @returns Returns true if the light is a directional light, false if it is not
+     */
     function instanceOfDirectionalLight(light: Light | DirectionalLight): light is DirectionalLight {
         return (<DirectionalLight>light).angle !== undefined;
     }
 
     // gets the centroid of a polygon
+    /**
+     * Finds the centroid of the polygon
+     * 
+     * @param points List of points that make up the polygon
+     * @returns Returns the centroid of the polygon
+     */
     function getCentroid(points: Point[]): Point {
         var x: number = 0, y: number = 0;
         for (var i = 0; i < points.length; i++) {
@@ -300,6 +606,13 @@ const ANVIL = (() => {
     }
 
     // calculates FPS based on a buffer
+    /**
+     * Calculates FPS of the scene based on a buffer of timestamps
+     * 
+     * @param buffer Array of numbers that represent the time between frames
+     * @param FPS_BUFFER_LENGTH How long the buffer should be before an accurate FPS can be calculated
+     * @returns FPS of the scene
+     */
     function calculateFPS(buffer: Array<number>, FPS_BUFFER_LENGTH: number = 60): number | string {
         buffer = buffer.map(t => {
             var seconds = 1000 / t;
@@ -311,6 +624,12 @@ const ANVIL = (() => {
     }
 
     // gets the top left most point of a polygon
+    /**
+     * Finds the top left most point of a given polyogon
+     * 
+     * @param points List of points that make up the polygon
+     * @returns Returns the top left most point of the polygon
+     */
     function findTopLeftMostPoint(points: Point[]): Point {
         if (points.length === 0) {
             throw new Error('Points array must not be empty');
@@ -341,6 +660,12 @@ const ANVIL = (() => {
     }
 
     // checks to see if a polygon is a square
+    /**
+     * Checks to see if a given polygon is a square (used for collision detection)
+     * 
+     * @param points List of points that make up the polygon
+     * @returns Returns true if the polygon is a square, false if it is not
+     */
     function isSquare(points: Point[]): boolean {
         if (points.length !== 4) return false;
         // Assuming points is an array of 4 points
@@ -356,11 +681,24 @@ const ANVIL = (() => {
     }
 
     // gets the distance between two points
+    /**
+     * Gets the distance between two points
+     * 
+     * @param point1 The first point
+     * @param point2 The second point
+     * @returns The distance between the points
+     */
     function distance(point1: Point, point2: Point): number {
         return Math.sqrt(Math.pow(point2[0] - point1[0], 2) + Math.pow(point2[1] - point1[1], 2));
     }
 
     // calculates the bounding box of a polygon based on a set of vertices
+    /**
+     * Calculates the bounding box of a polygon based on a set of vertices
+     * 
+     * @param vertices List of vertices that make up the polygon
+     * @returns An array representing the bounding box of the polygon
+     */
     function getBoundingBox(vertices: Array<Vertex>): Array<number> {
         let minX = Number.MAX_VALUE;
         let minY = Number.MAX_VALUE;
@@ -378,6 +716,13 @@ const ANVIL = (() => {
     }
 
     // adds the elements of two arrays together
+
+    /**
+     * Adds up multiple arrays
+     * 
+     * @param arrays List of arrays to add together
+     * @returns The arrays, each element summed with the corresponding element of the other arrays
+     */
     function sumArrays(...arrays: Array<Array<number>>): Array<number> {
         const n = arrays.reduce((max, xs) => Math.max(max, xs.length), 0);
         const result = Array.from({ length: n });
@@ -385,6 +730,12 @@ const ANVIL = (() => {
     }
 
     // multiplies the elements of two arrays together
+    /**
+     * Multiples the elements of two arrays together
+     * 
+     * @param arrays List of arrays to multiply together
+     * @returns The arrays, each element multiplied with the corresponding element of the other arrays
+     */
     function multArrays(...arrays: Array<Array<number>>): Array<number> {
         const n = arrays.reduce((max, xs) => Math.max(max, xs.length), 0);
         const result = Array.from({ length: n });
@@ -392,6 +743,11 @@ const ANVIL = (() => {
     }
 
     // generates a unique identifier
+    /**
+     * Generates a unique identifier
+     * 
+     * @returns A unique identifier
+     */
     function uid(): string {
         let
             d = new Date().getTime(),
@@ -410,6 +766,13 @@ const ANVIL = (() => {
     };
 
     // checks to see if two polygons are colliding (used for convex polygons)
+    /**
+     * Checks to see if two polygons are intersecting (used for convex polygons)
+     * 
+     * @param poly1 The first polygon
+     * @param poly2 The second polygon
+     * @returns True if the polygons are colliding, false otherwise
+     */
     function checkSquareCollision(poly1: Point[], poly2: Point[]): boolean {
         // Helper function to get the axes of a polygon
         function getAxes(poly: Point[]): Array<Vec2> {
@@ -463,6 +826,12 @@ const ANVIL = (() => {
     }
 
     // checks if a point is inside a polygon (not good for collision detection (does not check for edges intersecting) use checkSquareCollision()
+    /**
+     * Used for concave collision detection, not good for collision detection (does not check for edges intersecting) use checkSquareCollision()
+     * @param polygon The polygon to check
+     * @param pointsArray List of point to check against the polygon
+     * @returns True if any of the points lie inside the polygon
+     */
     function checkCollision(polygon: Point[], pointsArray: Array<Point>): Boolean {
         // Ensure the polygon has at least 3 points
         if (polygon.length < 3) {
@@ -519,7 +888,38 @@ const ANVIL = (() => {
 
 
 
-
+    /**
+     * @class GameObject
+     * @classdesc Base class for all objects in the scene
+     * @property {boolean} physicsEnabled - boolean if physics is enabled on the object
+     * @property {PhysicsOptions} physicsOptions - options for the physics engine
+     * @property {string} id - unique ID for each object
+     * @property {Array<number>} bounds - how the object is bounded in the scene (set with scene.setBoundaries())
+     * @property {boolean} boundsActive - are the bounds active on this object?
+     * @property {boolean} pinned - does nothing!
+     * @property {Object} _state - used for state() and returnState(), builds states that are returnable. Stacking two states is destructive.
+     * @property {boolean} square - True if the object is a square, false otherwise
+     * @property {Vec2} hitbox - Hitbox of the object, if the object is a square
+     * @property {any} body - reference to the physics body (matter.js). Empty if physics is not enabled
+     * @property {Array<Vec2>} points - points of the object (used for collision detection)
+     * @property {Vec2} coordinates - coordinates of the object, or the top left most point of the object
+     * @property {string} type - Type of the object, either "gameObject", "sprite", or "polygon"
+     * @property {boolean} convex - true if the object is convex, false otherwise
+     * @property {any} [key: string] - any other properties that are added to the object
+     * @example
+     * ```js
+     *  const gameObject = new GameObject({
+     *      physicsEnabled: true,
+     *      physicsOptions: {
+     *          restitution: 0.5
+     *     }
+     *  });
+     * ```
+     * @example
+     * ```js
+     *  const gameObject = new GameObject();
+     * ```
+     */
     class GameObject {
         physicsEnabled: boolean; // boolean if physics is enabled on the object
         physicsOptions: PhysicsOptions; // options for the physics engine
@@ -536,6 +936,11 @@ const ANVIL = (() => {
         type: string; // Type of the object, either "gameObject", "sprite", or "polygon"
         convex: boolean; // true if the object is convex, false otherwise
         [key: string]: any;
+
+        /**
+         * 
+         * @param options GameObjectOptions to initialize the object with
+         */
         constructor(options: GameObjectOptions = {}) {
             // will physics work on this object?
             this.physicsEnabled = options.physicsEnabled || false;
@@ -564,8 +969,13 @@ const ANVIL = (() => {
             this.convex = false; // assume the worst
         }
 
-        // changes an attribute of the object (non destructive). To return to the orignal object, use returnState.
-        state(attr: string, value: any) {
+        /**
+         * Changes an attribute of the object (non destructive). To return to the original object, use returnState. Used for clicking
+         * 
+         * @param attr The attribute to change
+         * @param value The new value of that attribute
+         */
+        state(attr: string, value: any): void {
             Object.keys(this).forEach(key => {
                 if (key == "_state") return;
                 this._state[key] = this[key];
@@ -573,15 +983,19 @@ const ANVIL = (() => {
             this[attr] = value;
         }
 
-        // returns to the old state (before state() was called)
-        returnState() {
+        /**
+         * Returns to the old state (before state() was called). Used for clicking
+         */
+        returnState(): void {
             Object.keys(this._state).forEach(key => {
                 this[key] = this._state[key];
             })
         }
 
-        // updates object physics 1 tick
-        updatePhysics() {
+        /**
+         * Updates object physics 1 tick
+         */
+        updatePhysics(): void {
             var vertices = this.body.vertices;
             if (this.square) {
                 var width = (vertices[0].x - 10) - (vertices[1].x + 10);
@@ -605,43 +1019,74 @@ const ANVIL = (() => {
                 this.coordinates = findTopLeftMostPoint(this.points);
             }
         }
-        // applies a force to the object (only works if physics enabled)
+        /**
+         * Applies a force to the object (only works if physics enabled)
+         * 
+         * @param vector The force vector to apply to the object
+         */
         applyForce(vector: Vec2) {
             var vec = Matter.Vector.create(vector[0], vector[1]);
             Matter.Body.applyForce(this.body, this.body.position, vec);
         }
 
-        // modifies pin
+        /**
+         * Modifies pin
+         */
         unpin() {
             this.pinned = false;
         }
+        /**
+         * Modifies pin
+         */
         pin() {
             this.pinned = true
         }
 
-        // should return an array of points (eg: objects bounds). used for collision detection
+        /**
+         * Returns the gameobject represented as an array of points.
+         * @returns An array of points (eg: objects bounds). used for collision detection
+         */
         polify(): Point[] {
             return [];
         }
+        
+        /**
+         * Draws the object on the provided drawing context, in accordance with the camera position. This is handled automatically with scene and scene managers
+         * 
+         * @param options The DrawOptions for the object
+         */
         draw(options: DrawOptions) { }
 
-        // sets the object's bounds
+
+        /**
+         * Sets the object's bounds (where it can move)
+         * @param bounds The bounds to set the object to
+         */
         setBounds(bounds: Array<number>) {
             this.bounds = bounds;
             this.boundsActive = true;
         }
 
-        // disables bounds on that object
+        /**
+         * Disables bounds on that object
+         */
         disableBounds() {
             this.boundsActive = false;
         }
 
-        // activates bounds on that object
+        /**
+         * Activates bounds on that object
+         */
         activateBounds() {
             this.boundsActive = true;
         }
 
-        // statically moves the object (no forces involved)
+        /**
+         * Moves the object by a vector (no forces involved)
+         * 
+         * @param vector The vector to move the object by
+         * @returns Whether the object was moved or not (if it was out of bounds, it will not move)
+         */
         moveStatic(vector: Vec2) {
             if (!this.physicsEnabled) return this.move(vector);
             var newX = this.body.position.x + vector[0];
@@ -650,17 +1095,28 @@ const ANVIL = (() => {
             return true;
         }
 
-        // returns the width of the object. Useful for polygons, as polygons do not have a reliable width property
+        /**
+         * Gets the width of the object.
+         * @returns The width of the object. Useful for polygons, as polygons do not have a reliable width property
+         */
         getWidth(): number {
             return 0;
         }
 
-        // returns the height of the object. Useful for polygons, as polygons do not have a reliable height property
+        /**
+         * Gets the height of the object.
+         * @returns The height of the object. Useful for polygons, as polygons do not have a reliable height property
+         */
         getHeight(): number {
             return 0;
         }
 
-        // top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending) 
+        /**
+         * Top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending)
+         * @param vector Vector to move the object by
+         * @param continueAfterPhysics If set to false, the object will not move if physics are not enabled. If true, the object will move if physics are not enabled. True by defualt
+         * @returns Boolean, true if the move was successful, false if it was not (if it was out of bounds, it will not move)
+         */
         move(vector: Vec2, continueAfterPhysics = true): Boolean {
             var newCoords = <Vec2>sumArrays(this.coordinates, vector);
             if (this.physicsEnabled) {
@@ -698,7 +1154,12 @@ const ANVIL = (() => {
             }
         }
 
-        // used polify() to check for a collision between this and that object (remember to set whether the bounds are square, or a convex polygon... changes the collision detection method used)
+        /**
+         * Checks for a collision with another object
+         * 
+         * @param object The object to check for a collision with
+         * @returns Boolean, true of the object is colliding with the other object, false otherwise
+         */
         checkCollision(object: GameObject) {
             var p1 = this.polify();
             var p2 = object.polify();
@@ -711,7 +1172,29 @@ const ANVIL = (() => {
         }
     }
 
+    /**
+     * @class Polygon
+     * @classdesc Polygon class, used for rendering polygons
+     * @property {Array<Point>} points - points of the polygon
+     * @property {string} backgroundColor - background color of the polygon
+     * @property {Vec2} coordinates - coordinates of the polygon, or the top left most point of the polygon
+     * @property {boolean} convex - true if the polygon is convex, false otherwise
+     * @property {boolean} square - true if the polygon is a square, false otherwise
+     * @property {Vec2} hitbox - hitbox of the polygon, if the polygon is a square
+     * @property {string} type - type of the object, either "gameObject", "sprite", or "polygon"
+     * @example
+     * ```js
+     *  const polygon = new Polygon({
+     *      points: [[0, 0], [0, 100], [100, 100], [100, 0]],
+     *      backgroundColor: "red"
+     *  });
+     * ```
+     */
     class Polygon extends GameObject {
+        /**
+         * 
+         * @param options PolygonOptions to initialize the polygon with
+         */
         constructor(options: PolygonOptions) {
             super(options);
             this.type = "polygon"
@@ -728,13 +1211,28 @@ const ANVIL = (() => {
             }
         }
 
-        // sets the hitbox of the polygon... useful if the polygon is concave and you want reliable collision detection. Recommended to use as poly.setHitBox(poly.getWidth(), poly.getHeight())
+        /**
+         * Sets the hitbox of the polygon. Useful if the polygon is concave and you need more reliable collision detection.
+         * @param width The width of the hitbox
+         * @param height The height of the hitbox
+         * @example
+         * ```js
+         * const polygon = new Polygon({
+         *      points: [[0, 0], [0, 100], [100, 100], [100, 0]],
+         *      backgroundColor: "red"
+         * });
+         * polygon.setHitBox(polygon.getWidth(), polygon.getHeight());
+         * ``` 
+         */
         setHitBox(width: number, height: number): void {
             this.hitbox = [width, height];
             this.square = true;
         }
 
-        // draws the polygon onto the provided drawing context, in accordance with the camera position. This is handled automatically with scene and scene managers
+        /**
+         * Draws the polygon onto the provided drawing context. This is handled automatically with scene and scene managers
+         * @param options The DrawOptions for the object
+         */
         draw(options: DrawOptions): void {
             var { ctx, camera } = options;
             ctx.fillStyle = this.backgroundColor;
@@ -749,10 +1247,18 @@ const ANVIL = (() => {
 
         }
 
-        // returns the vertices of the polygon.
+        /**
+         * Returns the vertices of the polygon.
+         * @returns The vertices of the polygon
+         */
         polify(): Point[] {
             return this.points;
         }
+
+        /**
+         * Calculates the width of the polygon.
+         * @returns The width of the polygon.
+         */
         getWidth(): number {
             var points = this.points;
 
@@ -773,6 +1279,11 @@ const ANVIL = (() => {
             const width = maxX - minX;
             return width;
         }
+
+        /**
+         * Calculates the height of the polygon.
+         * @returns The height of the polygon.
+         */
         getHeight(): number {
             var points = this.points;
 
@@ -793,6 +1304,13 @@ const ANVIL = (() => {
             const height = maxY - minY;
             return height;
         }
+
+        /**
+         * Moves the polygon
+         * 
+         * @param vector The vector to move the polygon by
+         * @returns Boolean, true if the move was successful, false if it was not (if it was out of bounds, it will not move)
+         */
         move(vector: Vec2): Boolean {
             var moved: Boolean = super.move(vector);
             var newPoints: Point[] = []
@@ -816,6 +1334,26 @@ const ANVIL = (() => {
         }
     }
 
+    /**
+     * @class Sprite
+     * @classdesc Sprite class, used for rendering sprites
+     * @property {string} image - url of the image to use for the sprite
+     * @property {HTMLImageElement} source - the image element to use for the sprite
+     * @property {Vec2} coordinates - coordinates of the sprite, or the top left most point of the sprite
+     * @property {boolean} spriteLoaded - true if the sprite is loaded, false otherwise
+     * @property {number} width - width of the sprite
+     * @property {number} height - height of the sprite
+     * @property {string} type - type of the object, either "gameObject", "sprite", or "polygon"
+     * @example
+     * ```js
+     * const sprite = new Sprite({
+     *      url: "https://i.imgur.com/9Nc8fFp.png",
+     *      coordinates: [0, 0],
+     *      width: 100,
+     *      height: 100
+     * });
+     * ```
+     */
     class Sprite extends GameObject {
         image: string;
         source: HTMLImageElement;
@@ -824,7 +1362,10 @@ const ANVIL = (() => {
         width: number;
         height: number;
 
-
+        /**
+         * 
+         * @param options SpriteOptions to initialize the sprite with
+         */
         constructor(options: SpriteOptions) {
             super(options);
             this.type = "sprite"
@@ -838,12 +1379,24 @@ const ANVIL = (() => {
             this.spriteLoaded = false
             this.reload();
         }
+
+        /**
+         * @returns The width of the sprite
+         */
         getWidth(): number {
             return this.width;
         }
+
+        /**
+         * @returns The height of the sprite
+         */
         getHeight(): number {
             return this.height;
         }
+
+        /**
+         * Loads the sprite, or reloads the image source when the image is changed
+         */
         reload(): void {
             this.source.src = this.image;
             this.source.crossOrigin = 'anonymous'
@@ -851,6 +1404,12 @@ const ANVIL = (() => {
                 this.spriteLoaded = true;
             }
         }
+        
+        /**
+         * Draws the sprite onto the provided drawing context. This is handled automatically with scene and scene managers
+         * 
+         * @param options The DrawOptions for the object
+         */
         draw(options: DrawOptions): void {
             var { ctx, camera } = options;
             if (!this.physicsEnabled) {
@@ -868,20 +1427,43 @@ const ANVIL = (() => {
                 ctx.restore();
             }
         }
+
+        /**
+         * Reshapes the sprite according to the provided dimensions
+         * 
+         * @param width The new width of the sprite
+         * @param height The new height of the sprite
+         */
         reshape(width: number, height: number): void {
             this.width = width;
             this.height = height;
             this.hitbox = [this.width, this.height]
         }
+
+        /**
+         * Scales the sprite by the provided factor. 1 is the default size, 2 is twice the size, 0.5 is half the size, etc.
+         * @param factor The factor to scale the sprite by
+         */
         scale(factor: number): void {
             this.width = this.width * factor;
             this.height = this.height * factor;
             this.hitbox = [this.width, this.height];
         }
+        
+        /**
+         * Changes the sprites image source
+         * 
+         * @param image The new image URL to use for the sprite
+         */
         changeSource(image: string): void {
             this.image = image;
             this.reload();
         }
+
+        /**
+         * Calculates the vertices of the sprite
+         * @returns The vertices of the sprite
+         */
         polify(): Point[] {
             var point1: Point = [this.coordinates[0], this.coordinates[1]];
             var point2: Point = [this.coordinates[0] + this.width, this.coordinates[1]];
@@ -891,6 +1473,25 @@ const ANVIL = (() => {
         }
     }
 
+
+    /**
+     * @class Light
+     * @classdesc Light class, used for creating lights in the scene
+     * @property {Point} point - Coordinates of the light
+     * @property {number} diffuse - How much the light diffuses (measured in pixels)
+     * @property {number} strength - Strength of the light. No matter how strong it is, it will never go past the bounds defined by diffuse
+     * @property {Array<number>} color - Color of the light. Format is [r,g,b]. White by default
+     * @property {string} type - Type of the light, either "light" or "directional"
+     * @property {GameObject} pinnedTo - Object to pin the light's position to. Null by default.
+     * @example
+     * ```js
+     * // light at position [0, 0], diffuse 0.5, strength 0.8, color [255, 255, 255] (white)
+     * const light = new Light([0, 0], 0.5, 0.8, [255, 255, 255]);
+     * ```
+     * @example
+     * // light at position [0, 0], diffuse 0.5, defualt strength (0.8), defualt color (white)
+     * const light = new Light([0, 0], 0.5);
+     */
     class Light {
         point: Point;
         diffuse: number;
@@ -899,6 +1500,13 @@ const ANVIL = (() => {
         type: string;
         pinnedTo: GameObject | null;
 
+        /**
+         * 
+         * @param position The position of the light in wolrd space [x,y]
+         * @param diffuse How far the light diffuses, in pixels
+         * @param strength The strength of the light. Default is 0.8
+         * @param color The color of the light, [r,g,b]. By defualt is [255, 255, 255] (white)
+         */
         constructor(position: Point, diffuse: number, strength: number = 0.8, color = [255, 255, 255]) {
             if (typeof color != "object" || color.length != 3) throw new Error("Light color format is [r,g,b]");
             this.point = position;
@@ -908,18 +1516,50 @@ const ANVIL = (() => {
             this.color = color;
             this.pinnedTo = null;
         }
+
+        /**
+         * Pins the light's position to a certain GameObject
+         * @param object The GameObject to pin the light to
+         */
         pin(object: GameObject): void {
             this.pinnedTo = object
         }
+
+        /**
+         * Brightens the light by the specified factor
+         * 
+         * @param factor The factor to brighten the light by
+         */
         brighten(factor: number) {
             this.strength *= factor;
         }
+
+        /**
+         * Dims the light by the specified factor
+         * 
+         * @param factor The factor to dim the light by
+         */
         dim(factor: number): void {
             this.strength /= factor;
         }
+
+        /**
+         * Moves the light by the specified vector
+         * @param vector The vector to move the light by
+         * @example
+         * ```js
+         * const light = new Light([0, 0], 0.5);
+         * light.move([10, 10]); // moves the light ten pixels to the right and ten pixels down
+         */
         move(vector: Vec2): void {
             this.point = <Vec2>sumArrays(this.point, vector)
         }
+
+        /**
+         * Moves the light to the center of the specified GameObject (Good for things like lanterns, etc.)
+         * 
+         * @param object GameObject to move the light's position to
+         */
         moveToObject(object: GameObject): void {
 
             var sumOfX = 0;
@@ -933,6 +1573,11 @@ const ANVIL = (() => {
             var middleOfObject = [a1, a2]
             this.point = [middleOfObject[0], middleOfObject[1]];
         }
+
+        /**
+         * Updates the light's position if pinned to an object, otherwise does nothing
+         * @param canvas The canvas to draw the light on (Optional).
+         */
         update(canvas: HTMLCanvasElement): void {
             if (this.pinnedTo) {
                 this.moveToObject(this.pinnedTo)
@@ -940,11 +1585,40 @@ const ANVIL = (() => {
         }
     }
 
+
+    /**
+     * @class DirectionalLight
+     * @classdesc DirectionalLight class, used for creating directional lights in the scene
+     * @property {Point} point - Coordinates of the light
+     * @property {number} diffuse - How much the light diffuses (measured in pixels)
+     * @property {number} strength - Strength of the light. No matter how strong it is, it will never go past the bounds defined by diffuse
+     * @property {Array<number>} color - Color of the light. Format is [r,g,b]. White by default
+     * @property {string} type - Type of the light, either "light" or "directional"
+     * @property {number} angle - Angle of the light (in radians)
+     * @property {number} spread - Spread of the light (in radians)
+     * @property {GameObject} pinnedToAngle - Object to pin the light's angle to. Null by default.
+     * @beta
+     * @devnote Directional lights are not fully implemented yet. They are not recommended for use.
+     * @example
+     * ```js
+     * // light at position [0, 0], diffuse 0.5, strength 0.8, color [255, 255, 255] (white)
+     * const light = new DirectionalLight([0, 0], 0.5, 0.8, [255, 255, 255]);
+     * ```
+     */
     class DirectionalLight extends Light {
         angle: number;
         spread: number;
         pinnedToAngle: GameObject | null;
 
+        /**
+         * 
+         * @param position Position of the light in the world. [x,y]
+         * @param angle Angle of the light, in radians
+         * @param spread The spread of the light, in radians
+         * @param diffuse How far the light diffuses, in pixels
+         * @param strength The strength of the light.
+         * @param color The color of the light, [r,g,b]. By defualt is [255, 255, 255] (white)
+         */
         constructor(position: Point, angle: number, spread: number, diffuse: number, strength: number, color = [255, 255, 255]) {
             super(position, diffuse, strength, color)
             if (typeof color != "object" || color.length != 3) throw new Error("Light color format is [r,g,b]");
@@ -957,6 +1631,12 @@ const ANVIL = (() => {
             this.spread = spread;
             this.pinnedToAngle = null;
         }
+
+        /**
+         * Point the light to a certain object
+         * @param object Object to point the light to
+         * @param canvas Canvas that the light is being rendered on (used for calculating the angle)
+         */
         pointTo(object: GameObject, canvas: HTMLCanvasElement) {
             var sumOfX = 0;
             var sumOfY = 0;
@@ -971,9 +1651,20 @@ const ANVIL = (() => {
             var angleToPoint = Math.atan2(vector[1], vector[0]);
             this.angle = angleToPoint;
         }
+
+        /**
+         * Pins the angle of the light toward a given GameObject
+         * 
+         * @param object GameObject to pin the light's angle to (points the light to the center of the object)
+         */
         pinAngleTo(object: GameObject) {
             this.pinnedToAngle = object;
         }
+
+        /**
+         * Updates the light's position and angle if pinned to an object, otherwise does nothing
+         * @param canvas Required to calculate the angle of the light (if the angle is pinned)
+         */
         update(canvas: HTMLCanvasElement) {
 
             if (this.pinnedTo) {
@@ -985,6 +1676,73 @@ const ANVIL = (() => {
         }
     }
 
+
+    /**
+     * @class Scene
+     * @classdesc Scene class, used for building scenes
+     * @property {Array<GameObject>} objects - Objects in the scene
+     * @property {Array<CollisionMonitor>} collisionMonitors - Collision monitors in the scene
+     * @property {Vec2} cameraAngle - Position of the camera
+     * @property {Array<number>} fpsBuffer - Buffer that holds the last FPS_BUFFER_SIZE frames rendering times (in ms)
+     * @property {boolean} fpsMonitoringEnabled - Whether or not to monitor the fps
+     * @property {number} lastFrameStamp - Last frame stamp
+     * @property {number} lastPhysicsUpdate - Last physics update
+     * @property {boolean} lighting - Whether or not lighting is enabled
+     * @property {string} id - Unique ID of the scene
+     * @property {Function} update - Update function of the scene (called every frame)
+     * @property {Array<Light>} lights - Lights in the scene
+     * @property {Array<DirectionalLight>} dlights - Directional lights in the scene
+     * @property {any} gpu - GPU.js instance
+     * @property {boolean} readyToDraw - Whether or not the scene is ready to draw
+     * @property {any} diffuseKernel - GPU.js kernel for diffuse lighting
+     * @property {number} fog - Fog of the scene
+     * @property {number} ambient - Ambient of the scene
+     * @property {boolean} clearScene - Whether or not to clear the scene
+     * @property {boolean} physics - Whether or not physics is enabled
+     * @property {any} Engine - Matter.js Engine
+     * @property {any} Bodies - Matter.js Bodies
+     * @property {any} Composite - Matter.js Composite
+     * @property {any} engine - Matter.js engine instance
+     * @property {HTMLCanvasElement} canvas - Canvas of the scene
+     * @property {CanvasRenderingContext2D} ctx - Canvas rendering context of the scene
+     * @property {number} width - Width of the scene
+     * @property {number} height - Height of the scene
+     * @property {Vec2} bounds - Bounds of the scene
+     * @property {boolean} boundsActive - Whether or not the bounds are active
+     * @property {GameObject | null} cameraBind - Object to bind the camera to
+     * @property {number} FPS_BUFFER_SIZE - Size of the fps buffer
+     * @property {boolean} isActiveScene - Whether or not the scene is the active scene
+     * @example
+     * ```js
+     * const scene = new Scene({
+     *      lighting: true,
+     *      physics: true,
+     *      physicsOptions: {
+     *      gravity: {
+     *          x: 0,
+     *          y: 0
+     *      }
+     * }
+     * });
+     * ```
+     * @example
+     * ```js
+     * const scene = new Scene({
+     *      lighting: true,
+     *      physics: true,
+     *      physicsOptions: {
+     *          gravity: {
+     *              x: 0,
+     *              y: 0
+     *          }
+     *      },
+     *      lightOptions: {
+     *          fog: 1.3,
+     *          ambient: 0.2
+     *      } 
+     * });
+     * ```
+     */
     class Scene {
         objects: Array<GameObject>;
         collisionMonitors: Array<CollisionMonitor>;
@@ -1019,6 +1777,10 @@ const ANVIL = (() => {
         FPS_BUFFER_SIZE: number;
         isActiveScene: boolean;
 
+        /**
+         * 
+         * @param options SceneOptions object passed to initialize the scene
+         */
         constructor(options: SceneOptions = {}) {
             this.objects = [];
             this.collisionMonitors = [];
@@ -1065,6 +1827,10 @@ const ANVIL = (() => {
             }
             this.readyToDraw = false;
         }
+
+        /**
+         * Initializes the scene, specifically the light rendering kernel
+         */
         ready(): void {
             if (this.lighting) {
                 this.diffuseKernel = this.gpu.createKernel(GPULightingKernel, {
@@ -1080,6 +1846,10 @@ const ANVIL = (() => {
             }
             this.readyToDraw = true;
         }
+        /**
+         * Used to add lights to the scene
+         * @param light Light to add to the scene (can be either a Light or DirectionalLight)
+         */
         addLight(light: Light | DirectionalLight): void {
             if (instanceOfDirectionalLight(light)) {
                 this.dlights.push(light);
@@ -1087,18 +1857,39 @@ const ANVIL = (() => {
                 this.lights.push(light);
             }
         }
+        
+        /**
+         * Formats the lights into a format that the diffuseKernel can understand
+         * 
+         * @param lights List of lights in the scene
+         * @returns diffuseKernel-friendly light format
+         */
         formatLights(lights: Array<Light>): Array<number> {
             var flights = lights.map(l => {
                 return [l.point[0] - this.cameraAngle[0], l.point[1] - this.cameraAngle[1], l.strength, l.diffuse, l.color]
             });
             return flights.flat(2);
         }
+
+        /**
+         * Formats the directional lights into a format that the diffuseKernel can understand
+         * 
+         * @param lights List of directional lights in the scene
+         * @returns diffuseKernel-friendly directional light format
+         */
         formatDLights(lights: Array<DirectionalLight>): Array<number> {
             var dlights = lights.map(l => {
                 return [l.angle, l.point[0] - this.cameraAngle[0], l.point[1] - this.cameraAngle[1], l.strength, l.diffuse, l.spread, l.color];
             });
             return dlights.flat(2);
         }
+
+        /**
+         * Renders lights onto the scene. Automatically calculates if lights are in the camera view and removes them from the render if they are not.
+         * 
+         * @param ambient The ambient lighting in the scene
+         * @param fog The fog constant in the scene
+         */
         diffuseLights(ambient: number = 0.2, fog: number = 1.3): void {
             this.lights.forEach(l => {
                 l.update(this.canvas);
@@ -1153,6 +1944,14 @@ const ANVIL = (() => {
 
             this.ctx.putImageData(new ImageData(pixels, width, height), 0, 0);
         }
+
+        /**
+         * Sets the boundaries of the scene (eg: where object can move)
+         * 
+         * @param rightBound How far right (in pixel) can objects in the scene move. If object are initialized outside the bounds, they will not be able to move, unless physics is enabled, in which case they will not be able to enter the scene.
+         * @param bottomBound How far down (in pixel) can objects in the scene move. If object are initialized outside the bounds, they will not be able to move, unless physics is enabled, in which case they will not be able to enter the scene.
+         * @param activate Boolean, if true, bounds will be active by defualt, if false, bounds will be inactive by default
+         */
         setBoundaries(rightBound: number, bottomBound: number, activate: boolean = true): void {
             this.bounds = [rightBound || this.canvas.width, bottomBound || this.canvas.height];
             this.objects.forEach(object => {
@@ -1167,18 +1966,31 @@ const ANVIL = (() => {
                 this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
             }
         }
+
+        /**
+         * Disables the boundaries of the scene
+         */
         disableBounds(): void {
             this.boundsActive = false;
             this.objects.forEach(object => {
                 object.disableBounds();
             })
         }
+        /**
+         * Enables the boundaries of the scene
+         */
         activateBounds(): void {
             this.boundsActive = true;
             this.objects.forEach(object => {
                 object.activateBounds();
             })
         }
+
+        /**
+         * Adds the specified GameObject to the scene
+         * 
+         * @param object GameObject to add to the scene
+         */
         addObject(object: GameObject): void {
             object.scene = this.id;
             object.physicsEnabled = (this.physics) ? object.physicsEnabled : false;
@@ -1197,9 +2009,19 @@ const ANVIL = (() => {
             }
             this.objects.push(object);
         }
+
+        /**
+         * Clears the canvas that the scene is being drawn on
+         */
         clear(): void {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
+
+        /**
+         * Draws all of the objects, lights, and directional lights in the scene.
+         * Also updates each physics object and checks for collisions.
+         * It also recalculates the FPS if enabled.
+         */
         draw(): void {
             if (!this.readyToDraw) return;
             this.update();
@@ -1256,21 +2078,51 @@ const ANVIL = (() => {
                 this.ctx.fillText("FPS: " + calculateFPS(this.fpsBuffer), 5, 20);
             }
         }
+
+        /**
+         * Removes a GameObject from the scene
+         * @param object GameObject to remove from the scene
+         */
         removeObject(object: GameObject): void {
             this.objects.filter(compare => {
                 return !(compare.id == object.id);
             })
         }
+
+        /**
+         * Enables collisions between the specified objects
+         * Adds a CollisionMonitor to the scene
+         * 
+         * @param o1 First object to check for collisions
+         * @param o2 Second object to check for collisions
+         * @param fo Function that runs when the objects collide (called once)
+         * @param ff Function that runs when the objects separate (called once)
+         */
         enableCollisionsBetween(o1: GameObject, o2: GameObject, fo: Function, ff: Function) {
             this.collisionMonitors.push([o1, o2, fo, ff, false]);
             this.collisionMonitors.push([o2, o1, fo, ff, false]);
         }
+
+        /**
+         * Binds the scene's camera to a GameObject
+         * 
+         * @param object GameObject to bind the scene's camera to
+         */
         bindCamera(object: GameObject): void {
             this.cameraBind = object
         }
+
+        /**
+         * Unbinds the scene's camera from a GameObject
+         */
         unbindCamera(): void {
             this.cameraBind = null;
         }
+
+        /**
+         * Moves the camera to a GameObject
+         * @param object GameObject to move the camera to
+         */
         cameraTo(object: GameObject) {
             var sumOfX = 0;
             var sumOfY = 0;
@@ -1284,17 +2136,67 @@ const ANVIL = (() => {
             var middleOfCanvas = [this.width / 2, this.height / 2];
             this.cameraAngle = [middleOfObject[0] - middleOfCanvas[0], middleOfObject[1] - middleOfCanvas[1]];
         }
+
+        /**
+         * Moves the scene's camera
+         * 
+         * @param vector Vector to move the scene's camera by
+         */
         moveCamera(vector: Vec2) {
             this.cameraAngle = <Vec2>sumArrays(this.cameraAngle, vector);
         }
+
+        /**
+         * Enables FPS monitoring
+         */
         enableFPS() {
             this.fpsMonitoringEnabled = true;
         }
+
+        /**
+         * Disables FPS monitoring
+         */
         disableFPS() {
             this.fpsMonitoringEnabled = false;
         }
     }
 
+
+    /**
+     * @class SceneManager
+     * @classdesc SceneManager class, used for managing scenes and to transition between scenes
+     * @property {Object} scenes - Scenes in the scene manager
+     * @property {string} activeScene - ID of the active scene
+     * @property {number} width - Width of the canvas (Will resize the canvas to this width). By default is the width of the canvas element
+     * @property {number} height - Height of the canvas (Will resize the canvas to this height). By default is the width of the canvas element
+     * @property {HTMLCanvasElement} canvas - Canvas element to draw the scenes on
+     * @property {CanvasRenderingContext2D} ctx - Canvas rendering context of the canvas
+     * @property {string} sceneAnimation - Animation to use when transitioning between scenes
+     * @property {number} animationStartTime - Time when the animation started
+     * @property {number} animationRunTime - How long the animation should run for
+     * @property {Scene} animateTo - Scene to animate to
+     * @property {Array<string>} animationNames - Names of the animations that can be used
+     * @property {boolean} animationRunning - Whether or not the animation is running
+     * @property {boolean} fromScenePrevHadLights - Whether or not the scene that the animation is coming from had lighting enabled
+     * @property {boolean} toScenePrevHadLights - Whether or not the scene that the animation is going to had lighting enabled
+     * @example
+     * ```js
+     * const sceneManager = new SceneManager({
+     *      initialScene: scene,
+     *      canvas: document.getElementById("canvas")
+     * });
+     * ```
+     * @example
+     * ```js
+     * // Example animation between two scene
+     * const sceneManger = new SceneManager({
+     *      initialScene: scene,
+     *      canvas: document.getElementById("canvas")
+     * });
+     * sceneManager.addScene(scene2);
+     * sceneManager.animate("quickFade", scene2, 1000);
+     * ```
+     */
     class SceneManager {
         scenes: { [key: string]: Scene };
         activeScene: string;
@@ -1310,6 +2212,11 @@ const ANVIL = (() => {
         fromScenePrevHadLights!: boolean;
         toScenePrevHadLights!: boolean;
         animationRunning: boolean;
+
+        /**
+         * 
+         * @param options SceneManagerOptions object passed to initialize the scene manager
+         */
         constructor(options: SceneManagerOptions) {
             var initialScene = options.initialScene;
             if (!initialScene) throw new Error("Initial scene not provided");
@@ -1337,12 +2244,22 @@ const ANVIL = (() => {
 
             initialScene.isActiveScene = true;
         }
+
+        /**
+         * Changes the active scene, with no transition
+         * @param scene Scene to change to
+         */
         changeScene(scene: Scene): void {
             this.scenes[this.activeScene].isActiveScene = false;
             this.scenes[scene.id] = scene;
             this.scenes[scene.id].isActiveScene = true;
             this.activeScene = scene.id;
         }
+
+        /**
+         * Adds a sceen to the scene manager
+         * @param scene Scene to add to the scene manager
+         */
         addScene(scene: Scene): void {
             var arg1 = scene;
             this.scenes[arg1.id] = arg1;
@@ -1352,6 +2269,13 @@ const ANVIL = (() => {
             arg1.ctx = this.ctx;
             arg1.ready()
         }
+
+        /**
+         * Smoothly animates between scenes (unless lighting is enabled, in which case lighting is temporarily disabled as the animation is running)
+         * @param transition Name of the transition to use
+         * @param scene Scene to transition to
+         * @param duration Time (in ms) to run the transition for
+         */
         animate(transition: string, scene: Scene, duration: number = 1000): void {
             if (!this.animationNames.includes(transition)) throw new Error("Invalid transition type");
             this.sceneAnimation = transition;
@@ -1364,6 +2288,10 @@ const ANVIL = (() => {
                 this.toScenePrevHadLights = this.scenes[this.animateTo.id].lighting;
             }
         }
+
+        /**
+         * Draws the active scene onto the canvas, also runs animations if they are running
+         */
         draw(): void {
             // check if animations are running
             if (this.animationRunning && this.sceneAnimation && this.animationStartTime + this.animationRunTime > performance.now()) {
@@ -1450,6 +2378,26 @@ const ANVIL = (() => {
         }
     }
 
+    /**
+     * @class Input
+     * @classdesc Input class, used for handling input
+     * @property {boolean} active - Whether or not the input is active
+     * @property {string} key - Key that the input is bound to
+     * @property {number} fireRate - Fire rate of the input
+     * @property {string} id - Unique ID of the input
+     * @property {any} fireInterval - Interval that the input fires on
+     * @property {boolean} firing - Whether or not the input is firing
+     * @property {boolean} clickMonitor - Whether or not the input is a click monitor
+     * @property {Function} on - Function to run when the input is fired
+     * @example
+     * ```js
+     * const input = new Input("w", 100);
+     * input.on = () => {
+     *      console.log("w pressed");
+     * }
+     * input.activate(scene);
+     * ```
+     */
     class Input {
         active: boolean;
         key: string;
@@ -1460,6 +2408,11 @@ const ANVIL = (() => {
         clickMonitor: boolean;
         on!: Function;
 
+        /**
+         * 
+         * @param key The key that the input is bound to ("click" is you want to monitor clicks)
+         * @param fireRate How often the input fires (in ms)
+         */
         constructor(key: string, fireRate: number) {
             if (key == "click") {
                 this.clickMonitor = true;
@@ -1473,6 +2426,11 @@ const ANVIL = (() => {
             this.firing = false;
             this.active = false;
         }
+
+        /**
+         * Starts firing the on function ever fireRate ms
+         * @param e Event to pass to the on function
+         */
         startFiring(e: Event) {
             if (!this.firing) {
                 this.firing = true;
@@ -1484,12 +2442,20 @@ const ANVIL = (() => {
                 }, this.fireRate)
             }
         }
+
+        /**
+         * Stops firing the on function
+         */
         stopFiring() {
             if (this.firing) {
                 this.firing = false;
                 clearInterval(this.fireInterval);
             }
         }
+        /**
+         * Activates the input monitor
+         * @param scene Scene to activate the input on (Only matters if the input is a click monitor)
+         */
         activate(scene: Scene) {
             this.active = true;
             if (this.clickMonitor) {
@@ -1526,9 +2492,16 @@ const ANVIL = (() => {
                 })
             }
         }
+        /**
+         * Reactivates the input monitor (if it was deactivated- do not use input.active(scene) as this will cause the on function to be called twice every fireRate ms)
+         */
         reactivate() {
             this.active = true;
         }
+
+        /**
+         * Temporarily deactivates the input monitor
+         */
         deactivate() {
             this.active = false;
             this.stopFiring();

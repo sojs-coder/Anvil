@@ -11057,12 +11057,31 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 var ANVIL = (function () {
+    // Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
+    /**
+     * Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
+     * @param pix Uint8ClampedArray of the pixels of the canvas
+     * @param width Width of the canvas
+     * @param height Height of the canvas
+     * @param lights Array of lights in the scene (formatted)
+     * @param numLights Number of lights in the scene
+     * @param dlights Array of directional lights in the scene (formatted)
+     * @param numDlights Number of directional lights in the scene
+     * @param ambient Ambient lighting in the scene
+     * @param fog Constant that defines how lights spread in the scene
+     * @param globalAlpha Contant transparency of the scene
+     */
     function GPULightingKernel(pix, width, height, lights, numLights, dlights, numDlights, ambient, fog, globalAlpha) {
+        // aliases for coordinates (loop friendly)
         var i = this.thread.y;
         var j = this.thread.x;
+        // calculates the rows down from the top of the canvas
         var rowsDown = height - i;
+        // calculates the pixel number
         var pixNum = ((width * rowsDown) + j) * 4;
+        // initial brightness (format is r,g,b)
         var brightness = [ambient, ambient, ambient];
+        // loop over each light, calculate brightness of each pixel based on proximity to the light, how far the light spreads (diffuse), and the strength of the light
         for (var k = 0; k < numLights; k++) {
             var ln = k * 7;
             var attenuation = (1 - Math.pow(Math.min(distance([j, i], [lights[ln], height - lights[ln + 1]]), lights[ln + 3]) / lights[ln + 3], fog));
@@ -11071,6 +11090,7 @@ var ANVIL = (function () {
             brightness[1] += attenuation * strength * (lights[ln + 5] / 255);
             brightness[2] += attenuation * strength * (lights[ln + 6] / 255);
         }
+        // loops over each directional light, calculates brightness of each pixel based on proximity to the light, how far the light spreads (diffuse), the angle of the light, and the strength of the light
         for (var d = 0; d < numDlights; d++) {
             var ln = d * 9;
             var angle = dlights[ln];
@@ -11088,6 +11108,7 @@ var ANVIL = (function () {
             var dist = Math.sqrt(dirX * dirX + dirY * dirY);
             var angleToLight = (Math.atan2(dirY, dirX) + 2 * Math.PI) % (2 * Math.PI);
             var angleDiff = Math.acos(Math.cos(angleToLight - lightDir));
+            // if the pixel is within the spread of the light, calculate the brightness of the pixel
             if (angleDiff <= spread / 2) {
                 var diffuseFactor = Math.max(0, Math.cos(angleDiff) * (1 - (dist / diffuse)));
                 brightness[0] += diffuseFactor * intensity * (redL / 255);
@@ -11095,13 +11116,21 @@ var ANVIL = (function () {
                 brightness[2] += diffuseFactor * intensity * (blueL / 255);
             }
         }
+        // apply brightness to the pixel
         var red = ((pix[pixNum] / 255) * brightness[0]) * globalAlpha;
         var green = ((pix[pixNum + 1] / 255) * brightness[1]) * globalAlpha;
         var blue = ((pix[pixNum + 2] / 255) * brightness[2]) * globalAlpha;
         var alpha = (pix[pixNum + 3] / 255) * globalAlpha;
+        // return the color
         this.color(red, green, blue, alpha);
     }
     // checks if a polygon is convex
+    /**
+     * Checks if a polygon is convex
+     *
+     * @param points List of points that make up the polygon
+     * @returns Returns true of the polygon is convex, false if it is concave
+     */
     function isConvex(points) {
         if (points.length < 3) {
             // A polygon must have at least 3 points
@@ -11136,10 +11165,22 @@ var ANVIL = (function () {
         // If no sign change is detected, the polygon is convex
         return true;
     }
+    /**
+     * Checks to see if a light is a directional light or not
+     *
+     * @param light Light instnace to check
+     * @returns Returns true if the light is a directional light, false if it is not
+     */
     function instanceOfDirectionalLight(light) {
         return light.angle !== undefined;
     }
     // gets the centroid of a polygon
+    /**
+     * Finds the centroid of the polygon
+     *
+     * @param points List of points that make up the polygon
+     * @returns Returns the centroid of the polygon
+     */
     function getCentroid(points) {
         var x = 0, y = 0;
         for (var i = 0; i < points.length; i++) {
@@ -11149,6 +11190,13 @@ var ANVIL = (function () {
         return [x / points.length, y / points.length];
     }
     // calculates FPS based on a buffer
+    /**
+     * Calculates FPS of the scene based on a buffer of timestamps
+     *
+     * @param buffer Array of numbers that represent the time between frames
+     * @param FPS_BUFFER_LENGTH How long the buffer should be before an accurate FPS can be calculated
+     * @returns FPS of the scene
+     */
     function calculateFPS(buffer, FPS_BUFFER_LENGTH) {
         if (FPS_BUFFER_LENGTH === void 0) { FPS_BUFFER_LENGTH = 60; }
         buffer = buffer.map(function (t) {
@@ -11161,6 +11209,12 @@ var ANVIL = (function () {
         return Math.round(average(buffer));
     }
     // gets the top left most point of a polygon
+    /**
+     * Finds the top left most point of a given polyogon
+     *
+     * @param points List of points that make up the polygon
+     * @returns Returns the top left most point of the polygon
+     */
     function findTopLeftMostPoint(points) {
         if (points.length === 0) {
             throw new Error('Points array must not be empty');
@@ -11187,6 +11241,12 @@ var ANVIL = (function () {
         return topLeftMost;
     }
     // checks to see if a polygon is a square
+    /**
+     * Checks to see if a given polygon is a square (used for collision detection)
+     *
+     * @param points List of points that make up the polygon
+     * @returns Returns true if the polygon is a square, false if it is not
+     */
     function isSquare(points) {
         if (points.length !== 4)
             return false;
@@ -11197,14 +11257,28 @@ var ANVIL = (function () {
             distance(points[2], points[3]),
             distance(points[3], points[0])
         ];
+        // A square has 4 equal side lengths, Set() removes duplicates
         var uniqueSideLengths = new Set(sideLengths);
         return uniqueSideLengths.size === 1;
     }
     // gets the distance between two points
+    /**
+     * Gets the distance between two points
+     *
+     * @param point1 The first point
+     * @param point2 The second point
+     * @returns The distance between the points
+     */
     function distance(point1, point2) {
         return Math.sqrt(Math.pow(point2[0] - point1[0], 2) + Math.pow(point2[1] - point1[1], 2));
     }
     // calculates the bounding box of a polygon based on a set of vertices
+    /**
+     * Calculates the bounding box of a polygon based on a set of vertices
+     *
+     * @param vertices List of vertices that make up the polygon
+     * @returns An array representing the bounding box of the polygon
+     */
     function getBoundingBox(vertices) {
         var minX = Number.MAX_VALUE;
         var minY = Number.MAX_VALUE;
@@ -11220,6 +11294,12 @@ var ANVIL = (function () {
         return [minX, minY, maxX, maxY];
     }
     // adds the elements of two arrays together
+    /**
+     * Adds up multiple arrays
+     *
+     * @param arrays List of arrays to add together
+     * @returns The arrays, each element summed with the corresponding element of the other arrays
+     */
     function sumArrays() {
         var arrays = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -11230,6 +11310,12 @@ var ANVIL = (function () {
         return result.map(function (_, i) { return arrays.map(function (xs) { return xs[i] || 0; }).reduce(function (sum, x) { return sum + x; }, 0); });
     }
     // multiplies the elements of two arrays together
+    /**
+     * Multiples the elements of two arrays together
+     *
+     * @param arrays List of arrays to multiply together
+     * @returns The arrays, each element multiplied with the corresponding element of the other arrays
+     */
     function multArrays() {
         var arrays = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -11240,6 +11326,11 @@ var ANVIL = (function () {
         return result.map(function (_, i) { return arrays.map(function (xs) { return xs[i] || 0; }).reduce(function (sum, x) { return sum * x; }, 1); });
     }
     // generates a unique identifier
+    /**
+     * Generates a unique identifier
+     *
+     * @returns A unique identifier
+     */
     function uid() {
         var d = new Date().getTime(), d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now() * 1000)) || 0;
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -11257,7 +11348,15 @@ var ANVIL = (function () {
     }
     ;
     // checks to see if two polygons are colliding (used for convex polygons)
+    /**
+     * Checks to see if two polygons are intersecting (used for convex polygons)
+     *
+     * @param poly1 The first polygon
+     * @param poly2 The second polygon
+     * @returns True if the polygons are colliding, false otherwise
+     */
     function checkSquareCollision(poly1, poly2) {
+        // Helper function to get the axes of a polygon
         function getAxes(poly) {
             var axes = [];
             for (var i = 0; i < poly.length; i++) {
@@ -11269,6 +11368,7 @@ var ANVIL = (function () {
             }
             return axes;
         }
+        // generates a projection of the polygon onto an axis
         function project(poly, axis) {
             var min = Infinity;
             var max = -Infinity;
@@ -11280,15 +11380,20 @@ var ANVIL = (function () {
             }
             return { min: min, max: max };
         }
+        // checks to see if two projections overlap
         function overlap(projection1, projection2) {
             return (projection1.max >= projection2.min && projection2.max >= projection1.min);
         }
+        // get the axes of each polygon
         var axes1 = getAxes(poly1);
         var axes2 = getAxes(poly2);
+        // loop over each axis of each polygon
         for (var _i = 0, _a = __spreadArray(__spreadArray([], axes1, true), axes2, true); _i < _a.length; _i++) {
             var axis = _a[_i];
+            // calculate the projection of each polygon onto the axis
             var projection1 = project(poly1, axis);
             var projection2 = project(poly2, axis);
+            // check if the projections overlap
             if (!overlap(projection1, projection2)) {
                 // If there is any axis of separation, the polygons do not intersect
                 return false;
@@ -11298,6 +11403,12 @@ var ANVIL = (function () {
         return true;
     }
     // checks if a point is inside a polygon (not good for collision detection (does not check for edges intersecting) use checkSquareCollision()
+    /**
+     * Used for concave collision detection, not good for collision detection (does not check for edges intersecting) use checkSquareCollision()
+     * @param polygon The polygon to check
+     * @param pointsArray List of point to check against the polygon
+     * @returns True if any of the points lie inside the polygon
+     */
     function checkCollision(polygon, pointsArray) {
         // Ensure the polygon has at least 3 points
         if (polygon.length < 3) {
@@ -11338,7 +11449,43 @@ var ANVIL = (function () {
         }
         return false; // Return false if none of the points are inside the polygon
     }
+    /**
+     * @class GameObject
+     * @classdesc Base class for all objects in the scene
+     * @property {boolean} physicsEnabled - boolean if physics is enabled on the object
+     * @property {PhysicsOptions} physicsOptions - options for the physics engine
+     * @property {string} id - unique ID for each object
+     * @property {Array<number>} bounds - how the object is bounded in the scene (set with scene.setBoundaries())
+     * @property {boolean} boundsActive - are the bounds active on this object?
+     * @property {boolean} pinned - does nothing!
+     * @property {Object} _state - used for state() and returnState(), builds states that are returnable. Stacking two states is destructive.
+     * @property {boolean} square - True if the object is a square, false otherwise
+     * @property {Vec2} hitbox - Hitbox of the object, if the object is a square
+     * @property {any} body - reference to the physics body (matter.js). Empty if physics is not enabled
+     * @property {Array<Vec2>} points - points of the object (used for collision detection)
+     * @property {Vec2} coordinates - coordinates of the object, or the top left most point of the object
+     * @property {string} type - Type of the object, either "gameObject", "sprite", or "polygon"
+     * @property {boolean} convex - true if the object is convex, false otherwise
+     * @property {any} [key: string] - any other properties that are added to the object
+     * @example
+     * ```js
+     *  const gameObject = new GameObject({
+     *      physicsEnabled: true,
+     *      physicsOptions: {
+     *          restitution: 0.5
+     *     }
+     *  });
+     * ```
+     * @example
+     * ```js
+     *  const gameObject = new GameObject();
+     * ```
+     */
     var GameObject = /** @class */ (function () {
+        /**
+         *
+         * @param options GameObjectOptions to initialize the object with
+         */
         function GameObject(options) {
             if (options === void 0) { options = {}; }
             // will physics work on this object?
@@ -11362,7 +11509,12 @@ var ANVIL = (function () {
             this.type = "gameObject";
             this.convex = false; // assume the worst
         }
-        // changes an attribute of the object (non destructive). To return to the orignal object, use returnState.
+        /**
+         * Changes an attribute of the object (non destructive). To return to the original object, use returnState. Used for clicking
+         *
+         * @param attr The attribute to change
+         * @param value The new value of that attribute
+         */
         GameObject.prototype.state = function (attr, value) {
             var _this = this;
             Object.keys(this).forEach(function (key) {
@@ -11372,14 +11524,18 @@ var ANVIL = (function () {
             });
             this[attr] = value;
         };
-        // returns to the old state (before state() was called)
+        /**
+         * Returns to the old state (before state() was called). Used for clicking
+         */
         GameObject.prototype.returnState = function () {
             var _this = this;
             Object.keys(this._state).forEach(function (key) {
                 _this[key] = _this._state[key];
             });
         };
-        // updates object physics 1 tick
+        /**
+         * Updates object physics 1 tick
+         */
         GameObject.prototype.updatePhysics = function () {
             var vertices = this.body.vertices;
             if (this.square) {
@@ -11406,35 +11562,66 @@ var ANVIL = (function () {
                 this.coordinates = findTopLeftMostPoint(this.points);
             }
         };
-        // applies a force to the object (only works if physics enabled)
+        /**
+         * Applies a force to the object (only works if physics enabled)
+         *
+         * @param vector The force vector to apply to the object
+         */
         GameObject.prototype.applyForce = function (vector) {
             var vec = Matter.Vector.create(vector[0], vector[1]);
             Matter.Body.applyForce(this.body, this.body.position, vec);
         };
-        // modifies pin
+        /**
+         * Modifies pin
+         */
         GameObject.prototype.unpin = function () {
             this.pinned = false;
         };
+        /**
+         * Modifies pin
+         */
         GameObject.prototype.pin = function () {
             this.pinned = true;
         };
-        // should return an array of points (eg: objects bounds). used for collision detection
+        /**
+         * Returns the gameobject represented as an array of points.
+         * @returns An array of points (eg: objects bounds). used for collision detection
+         */
         GameObject.prototype.polify = function () {
             return [];
         };
+        /**
+         * Draws the object on the provided drawing context, in accordance with the camera position. This is handled automatically with scene and scene managers
+         *
+         * @param options The DrawOptions for the object
+         */
         GameObject.prototype.draw = function (options) { };
-        // sets the object's bounds
+        /**
+         * Sets the object's bounds (where it can move)
+         * @param bounds The bounds to set the object to
+         */
         GameObject.prototype.setBounds = function (bounds) {
             this.bounds = bounds;
             this.boundsActive = true;
         };
+        /**
+         * Disables bounds on that object
+         */
         GameObject.prototype.disableBounds = function () {
             this.boundsActive = false;
         };
+        /**
+         * Activates bounds on that object
+         */
         GameObject.prototype.activateBounds = function () {
             this.boundsActive = true;
         };
-        // statically moves the object (no forces involved)
+        /**
+         * Moves the object by a vector (no forces involved)
+         *
+         * @param vector The vector to move the object by
+         * @returns Whether the object was moved or not (if it was out of bounds, it will not move)
+         */
         GameObject.prototype.moveStatic = function (vector) {
             if (!this.physicsEnabled)
                 return this.move(vector);
@@ -11443,13 +11630,26 @@ var ANVIL = (function () {
             Matter.Body.setPosition(this.body, Matter.Vector.create(newX, newY));
             return true;
         };
+        /**
+         * Gets the width of the object.
+         * @returns The width of the object. Useful for polygons, as polygons do not have a reliable width property
+         */
         GameObject.prototype.getWidth = function () {
             return 0;
         };
+        /**
+         * Gets the height of the object.
+         * @returns The height of the object. Useful for polygons, as polygons do not have a reliable height property
+         */
         GameObject.prototype.getHeight = function () {
             return 0;
         };
-        // top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending) 
+        /**
+         * Top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending)
+         * @param vector Vector to move the object by
+         * @param continueAfterPhysics If set to false, the object will not move if physics are not enabled. If true, the object will move if physics are not enabled. True by defualt
+         * @returns Boolean, true if the move was successful, false if it was not (if it was out of bounds, it will not move)
+         */
         GameObject.prototype.move = function (vector, continueAfterPhysics) {
             if (continueAfterPhysics === void 0) { continueAfterPhysics = true; }
             var newCoords = sumArrays(this.coordinates, vector);
@@ -11491,7 +11691,12 @@ var ANVIL = (function () {
                 return true;
             }
         };
-        // used polify() to check for a collision between this and that object (remember to set whether the bounds are square, or a convex polygon... changes the collision detection method used)
+        /**
+         * Checks for a collision with another object
+         *
+         * @param object The object to check for a collision with
+         * @returns Boolean, true of the object is colliding with the other object, false otherwise
+         */
         GameObject.prototype.checkCollision = function (object) {
             var p1 = this.polify();
             var p2 = object.polify();
@@ -11504,8 +11709,30 @@ var ANVIL = (function () {
         };
         return GameObject;
     }());
+    /**
+     * @class Polygon
+     * @classdesc Polygon class, used for rendering polygons
+     * @property {Array<Point>} points - points of the polygon
+     * @property {string} backgroundColor - background color of the polygon
+     * @property {Vec2} coordinates - coordinates of the polygon, or the top left most point of the polygon
+     * @property {boolean} convex - true if the polygon is convex, false otherwise
+     * @property {boolean} square - true if the polygon is a square, false otherwise
+     * @property {Vec2} hitbox - hitbox of the polygon, if the polygon is a square
+     * @property {string} type - type of the object, either "gameObject", "sprite", or "polygon"
+     * @example
+     * ```js
+     *  const polygon = new Polygon({
+     *      points: [[0, 0], [0, 100], [100, 100], [100, 0]],
+     *      backgroundColor: "red"
+     *  });
+     * ```
+     */
     var Polygon = /** @class */ (function (_super) {
         __extends(Polygon, _super);
+        /**
+         *
+         * @param options PolygonOptions to initialize the polygon with
+         */
         function Polygon(options) {
             var _this = _super.call(this, options) || this;
             _this.type = "polygon";
@@ -11522,10 +11749,27 @@ var ANVIL = (function () {
             }
             return _this;
         }
+        /**
+         * Sets the hitbox of the polygon. Useful if the polygon is concave and you need more reliable collision detection.
+         * @param width The width of the hitbox
+         * @param height The height of the hitbox
+         * @example
+         * ```js
+         * const polygon = new Polygon({
+         *      points: [[0, 0], [0, 100], [100, 100], [100, 0]],
+         *      backgroundColor: "red"
+         * });
+         * polygon.setHitBox(polygon.getWidth(), polygon.getHeight());
+         * ```
+         */
         Polygon.prototype.setHitBox = function (width, height) {
             this.hitbox = [width, height];
             this.square = true;
         };
+        /**
+         * Draws the polygon onto the provided drawing context. This is handled automatically with scene and scene managers
+         * @param options The DrawOptions for the object
+         */
         Polygon.prototype.draw = function (options) {
             var ctx = options.ctx, camera = options.camera;
             ctx.fillStyle = this.backgroundColor;
@@ -11538,9 +11782,17 @@ var ANVIL = (function () {
             ctx.closePath();
             ctx.fill();
         };
+        /**
+         * Returns the vertices of the polygon.
+         * @returns The vertices of the polygon
+         */
         Polygon.prototype.polify = function () {
             return this.points;
         };
+        /**
+         * Calculates the width of the polygon.
+         * @returns The width of the polygon.
+         */
         Polygon.prototype.getWidth = function () {
             var points = this.points;
             // Initialize min and max X-coordinates with the first point
@@ -11557,6 +11809,10 @@ var ANVIL = (function () {
             var width = maxX - minX;
             return width;
         };
+        /**
+         * Calculates the height of the polygon.
+         * @returns The height of the polygon.
+         */
         Polygon.prototype.getHeight = function () {
             var points = this.points;
             // Initialize min and max Y-coordinates with the first point
@@ -11573,6 +11829,12 @@ var ANVIL = (function () {
             var height = maxY - minY;
             return height;
         };
+        /**
+         * Moves the polygon
+         *
+         * @param vector The vector to move the polygon by
+         * @returns Boolean, true if the move was successful, false if it was not (if it was out of bounds, it will not move)
+         */
         Polygon.prototype.move = function (vector) {
             var moved = _super.prototype.move.call(this, vector);
             var newPoints = [];
@@ -11598,8 +11860,32 @@ var ANVIL = (function () {
         };
         return Polygon;
     }(GameObject));
+    /**
+     * @class Sprite
+     * @classdesc Sprite class, used for rendering sprites
+     * @property {string} image - url of the image to use for the sprite
+     * @property {HTMLImageElement} source - the image element to use for the sprite
+     * @property {Vec2} coordinates - coordinates of the sprite, or the top left most point of the sprite
+     * @property {boolean} spriteLoaded - true if the sprite is loaded, false otherwise
+     * @property {number} width - width of the sprite
+     * @property {number} height - height of the sprite
+     * @property {string} type - type of the object, either "gameObject", "sprite", or "polygon"
+     * @example
+     * ```js
+     * const sprite = new Sprite({
+     *      url: "https://i.imgur.com/9Nc8fFp.png",
+     *      coordinates: [0, 0],
+     *      width: 100,
+     *      height: 100
+     * });
+     * ```
+     */
     var Sprite = /** @class */ (function (_super) {
         __extends(Sprite, _super);
+        /**
+         *
+         * @param options SpriteOptions to initialize the sprite with
+         */
         function Sprite(options) {
             var _this = _super.call(this, options) || this;
             _this.type = "sprite";
@@ -11614,12 +11900,21 @@ var ANVIL = (function () {
             _this.reload();
             return _this;
         }
+        /**
+         * @returns The width of the sprite
+         */
         Sprite.prototype.getWidth = function () {
             return this.width;
         };
+        /**
+         * @returns The height of the sprite
+         */
         Sprite.prototype.getHeight = function () {
             return this.height;
         };
+        /**
+         * Loads the sprite, or reloads the image source when the image is changed
+         */
         Sprite.prototype.reload = function () {
             var _this = this;
             this.source.src = this.image;
@@ -11628,6 +11923,11 @@ var ANVIL = (function () {
                 _this.spriteLoaded = true;
             };
         };
+        /**
+         * Draws the sprite onto the provided drawing context. This is handled automatically with scene and scene managers
+         *
+         * @param options The DrawOptions for the object
+         */
         Sprite.prototype.draw = function (options) {
             var ctx = options.ctx, camera = options.camera;
             if (!this.physicsEnabled) {
@@ -11644,20 +11944,39 @@ var ANVIL = (function () {
                 ctx.restore();
             }
         };
+        /**
+         * Reshapes the sprite according to the provided dimensions
+         *
+         * @param width The new width of the sprite
+         * @param height The new height of the sprite
+         */
         Sprite.prototype.reshape = function (width, height) {
             this.width = width;
             this.height = height;
             this.hitbox = [this.width, this.height];
         };
+        /**
+         * Scales the sprite by the provided factor. 1 is the default size, 2 is twice the size, 0.5 is half the size, etc.
+         * @param factor The factor to scale the sprite by
+         */
         Sprite.prototype.scale = function (factor) {
             this.width = this.width * factor;
             this.height = this.height * factor;
             this.hitbox = [this.width, this.height];
         };
+        /**
+         * Changes the sprites image source
+         *
+         * @param image The new image URL to use for the sprite
+         */
         Sprite.prototype.changeSource = function (image) {
             this.image = image;
             this.reload();
         };
+        /**
+         * Calculates the vertices of the sprite
+         * @returns The vertices of the sprite
+         */
         Sprite.prototype.polify = function () {
             var point1 = [this.coordinates[0], this.coordinates[1]];
             var point2 = [this.coordinates[0] + this.width, this.coordinates[1]];
@@ -11667,7 +11986,32 @@ var ANVIL = (function () {
         };
         return Sprite;
     }(GameObject));
+    /**
+     * @class Light
+     * @classdesc Light class, used for creating lights in the scene
+     * @property {Point} point - Coordinates of the light
+     * @property {number} diffuse - How much the light diffuses (measured in pixels)
+     * @property {number} strength - Strength of the light. No matter how strong it is, it will never go past the bounds defined by diffuse
+     * @property {Array<number>} color - Color of the light. Format is [r,g,b]. White by default
+     * @property {string} type - Type of the light, either "light" or "directional"
+     * @property {GameObject} pinnedTo - Object to pin the light's position to. Null by default.
+     * @example
+     * ```js
+     * // light at position [0, 0], diffuse 0.5, strength 0.8, color [255, 255, 255] (white)
+     * const light = new Light([0, 0], 0.5, 0.8, [255, 255, 255]);
+     * ```
+     * @example
+     * // light at position [0, 0], diffuse 0.5, defualt strength (0.8), defualt color (white)
+     * const light = new Light([0, 0], 0.5);
+     */
     var Light = /** @class */ (function () {
+        /**
+         *
+         * @param position The position of the light in wolrd space [x,y]
+         * @param diffuse How far the light diffuses, in pixels
+         * @param strength The strength of the light. Default is 0.8
+         * @param color The color of the light, [r,g,b]. By defualt is [255, 255, 255] (white)
+         */
         function Light(position, diffuse, strength, color) {
             if (strength === void 0) { strength = 0.8; }
             if (color === void 0) { color = [255, 255, 255]; }
@@ -11680,18 +12024,45 @@ var ANVIL = (function () {
             this.color = color;
             this.pinnedTo = null;
         }
+        /**
+         * Pins the light's position to a certain GameObject
+         * @param object The GameObject to pin the light to
+         */
         Light.prototype.pin = function (object) {
             this.pinnedTo = object;
         };
+        /**
+         * Brightens the light by the specified factor
+         *
+         * @param factor The factor to brighten the light by
+         */
         Light.prototype.brighten = function (factor) {
             this.strength *= factor;
         };
+        /**
+         * Dims the light by the specified factor
+         *
+         * @param factor The factor to dim the light by
+         */
         Light.prototype.dim = function (factor) {
             this.strength /= factor;
         };
+        /**
+         * Moves the light by the specified vector
+         * @param vector The vector to move the light by
+         * @example
+         * ```js
+         * const light = new Light([0, 0], 0.5);
+         * light.move([10, 10]); // moves the light ten pixels to the right and ten pixels down
+         */
         Light.prototype.move = function (vector) {
             this.point = sumArrays(this.point, vector);
         };
+        /**
+         * Moves the light to the center of the specified GameObject (Good for things like lanterns, etc.)
+         *
+         * @param object GameObject to move the light's position to
+         */
         Light.prototype.moveToObject = function (object) {
             var sumOfX = 0;
             var sumOfY = 0;
@@ -11704,6 +12075,10 @@ var ANVIL = (function () {
             var middleOfObject = [a1, a2];
             this.point = [middleOfObject[0], middleOfObject[1]];
         };
+        /**
+         * Updates the light's position if pinned to an object, otherwise does nothing
+         * @param canvas The canvas to draw the light on (Optional).
+         */
         Light.prototype.update = function (canvas) {
             if (this.pinnedTo) {
                 this.moveToObject(this.pinnedTo);
@@ -11711,8 +12086,36 @@ var ANVIL = (function () {
         };
         return Light;
     }());
+    /**
+     * @class DirectionalLight
+     * @classdesc DirectionalLight class, used for creating directional lights in the scene
+     * @property {Point} point - Coordinates of the light
+     * @property {number} diffuse - How much the light diffuses (measured in pixels)
+     * @property {number} strength - Strength of the light. No matter how strong it is, it will never go past the bounds defined by diffuse
+     * @property {Array<number>} color - Color of the light. Format is [r,g,b]. White by default
+     * @property {string} type - Type of the light, either "light" or "directional"
+     * @property {number} angle - Angle of the light (in radians)
+     * @property {number} spread - Spread of the light (in radians)
+     * @property {GameObject} pinnedToAngle - Object to pin the light's angle to. Null by default.
+     * @beta
+     * @devnote Directional lights are not fully implemented yet. They are not recommended for use.
+     * @example
+     * ```js
+     * // light at position [0, 0], diffuse 0.5, strength 0.8, color [255, 255, 255] (white)
+     * const light = new DirectionalLight([0, 0], 0.5, 0.8, [255, 255, 255]);
+     * ```
+     */
     var DirectionalLight = /** @class */ (function (_super) {
         __extends(DirectionalLight, _super);
+        /**
+         *
+         * @param position Position of the light in the world. [x,y]
+         * @param angle Angle of the light, in radians
+         * @param spread The spread of the light, in radians
+         * @param diffuse How far the light diffuses, in pixels
+         * @param strength The strength of the light.
+         * @param color The color of the light, [r,g,b]. By defualt is [255, 255, 255] (white)
+         */
         function DirectionalLight(position, angle, spread, diffuse, strength, color) {
             if (color === void 0) { color = [255, 255, 255]; }
             var _this = _super.call(this, position, diffuse, strength, color) || this;
@@ -11728,6 +12131,11 @@ var ANVIL = (function () {
             _this.pinnedToAngle = null;
             return _this;
         }
+        /**
+         * Point the light to a certain object
+         * @param object Object to point the light to
+         * @param canvas Canvas that the light is being rendered on (used for calculating the angle)
+         */
         DirectionalLight.prototype.pointTo = function (object, canvas) {
             var sumOfX = 0;
             var sumOfY = 0;
@@ -11742,9 +12150,18 @@ var ANVIL = (function () {
             var angleToPoint = Math.atan2(vector[1], vector[0]);
             this.angle = angleToPoint;
         };
+        /**
+         * Pins the angle of the light toward a given GameObject
+         *
+         * @param object GameObject to pin the light's angle to (points the light to the center of the object)
+         */
         DirectionalLight.prototype.pinAngleTo = function (object) {
             this.pinnedToAngle = object;
         };
+        /**
+         * Updates the light's position and angle if pinned to an object, otherwise does nothing
+         * @param canvas Required to calculate the angle of the light (if the angle is pinned)
+         */
         DirectionalLight.prototype.update = function (canvas) {
             if (this.pinnedTo) {
                 this.moveToObject(this.pinnedTo);
@@ -11755,7 +12172,77 @@ var ANVIL = (function () {
         };
         return DirectionalLight;
     }(Light));
+    /**
+     * @class Scene
+     * @classdesc Scene class, used for building scenes
+     * @property {Array<GameObject>} objects - Objects in the scene
+     * @property {Array<CollisionMonitor>} collisionMonitors - Collision monitors in the scene
+     * @property {Vec2} cameraAngle - Position of the camera
+     * @property {Array<number>} fpsBuffer - Buffer that holds the last FPS_BUFFER_SIZE frames rendering times (in ms)
+     * @property {boolean} fpsMonitoringEnabled - Whether or not to monitor the fps
+     * @property {number} lastFrameStamp - Last frame stamp
+     * @property {number} lastPhysicsUpdate - Last physics update
+     * @property {boolean} lighting - Whether or not lighting is enabled
+     * @property {string} id - Unique ID of the scene
+     * @property {Function} update - Update function of the scene (called every frame)
+     * @property {Array<Light>} lights - Lights in the scene
+     * @property {Array<DirectionalLight>} dlights - Directional lights in the scene
+     * @property {any} gpu - GPU.js instance
+     * @property {boolean} readyToDraw - Whether or not the scene is ready to draw
+     * @property {any} diffuseKernel - GPU.js kernel for diffuse lighting
+     * @property {number} fog - Fog of the scene
+     * @property {number} ambient - Ambient of the scene
+     * @property {boolean} clearScene - Whether or not to clear the scene
+     * @property {boolean} physics - Whether or not physics is enabled
+     * @property {any} Engine - Matter.js Engine
+     * @property {any} Bodies - Matter.js Bodies
+     * @property {any} Composite - Matter.js Composite
+     * @property {any} engine - Matter.js engine instance
+     * @property {HTMLCanvasElement} canvas - Canvas of the scene
+     * @property {CanvasRenderingContext2D} ctx - Canvas rendering context of the scene
+     * @property {number} width - Width of the scene
+     * @property {number} height - Height of the scene
+     * @property {Vec2} bounds - Bounds of the scene
+     * @property {boolean} boundsActive - Whether or not the bounds are active
+     * @property {GameObject | null} cameraBind - Object to bind the camera to
+     * @property {number} FPS_BUFFER_SIZE - Size of the fps buffer
+     * @property {boolean} isActiveScene - Whether or not the scene is the active scene
+     * @example
+     * ```js
+     * const scene = new Scene({
+     *      lighting: true,
+     *      physics: true,
+     *      physicsOptions: {
+     *      gravity: {
+     *          x: 0,
+     *          y: 0
+     *      }
+     * }
+     * });
+     * ```
+     * @example
+     * ```js
+     * const scene = new Scene({
+     *      lighting: true,
+     *      physics: true,
+     *      physicsOptions: {
+     *          gravity: {
+     *              x: 0,
+     *              y: 0
+     *          }
+     *      },
+     *      lightOptions: {
+     *          fog: 1.3,
+     *          ambient: 0.2
+     *      }
+     * });
+     * ```
+     */
     var Scene = /** @class */ (function () {
+        /**
+         *
+         * @param options SceneOptions object passed to initialize the scene
+         */
         function Scene(options) {
             if (options === void 0) { options = {}; }
             this.objects = [];
@@ -11806,6 +12293,9 @@ var ANVIL = (function () {
             }
             this.readyToDraw = false;
         }
+        /**
+         * Initializes the scene, specifically the light rendering kernel
+         */
         Scene.prototype.ready = function () {
             if (this.lighting) {
                 this.diffuseKernel = this.gpu.createKernel(GPULightingKernel, {
@@ -11821,6 +12311,10 @@ var ANVIL = (function () {
             }
             this.readyToDraw = true;
         };
+        /**
+         * Used to add lights to the scene
+         * @param light Light to add to the scene (can be either a Light or DirectionalLight)
+         */
         Scene.prototype.addLight = function (light) {
             if (instanceOfDirectionalLight(light)) {
                 this.dlights.push(light);
@@ -11829,6 +12323,12 @@ var ANVIL = (function () {
                 this.lights.push(light);
             }
         };
+        /**
+         * Formats the lights into a format that the diffuseKernel can understand
+         *
+         * @param lights List of lights in the scene
+         * @returns diffuseKernel-friendly light format
+         */
         Scene.prototype.formatLights = function (lights) {
             var _this = this;
             var flights = lights.map(function (l) {
@@ -11836,6 +12336,12 @@ var ANVIL = (function () {
             });
             return flights.flat(2);
         };
+        /**
+         * Formats the directional lights into a format that the diffuseKernel can understand
+         *
+         * @param lights List of directional lights in the scene
+         * @returns diffuseKernel-friendly directional light format
+         */
         Scene.prototype.formatDLights = function (lights) {
             var _this = this;
             var dlights = lights.map(function (l) {
@@ -11843,6 +12349,12 @@ var ANVIL = (function () {
             });
             return dlights.flat(2);
         };
+        /**
+         * Renders lights onto the scene. Automatically calculates if lights are in the camera view and removes them from the render if they are not.
+         *
+         * @param ambient The ambient lighting in the scene
+         * @param fog The fog constant in the scene
+         */
         Scene.prototype.diffuseLights = function (ambient, fog) {
             var _this = this;
             if (ambient === void 0) { ambient = 0.2; }
@@ -11895,6 +12407,13 @@ var ANVIL = (function () {
             var pixels = this.diffuseKernel.getPixels();
             this.ctx.putImageData(new ImageData(pixels, width, height), 0, 0);
         };
+        /**
+         * Sets the boundaries of the scene (eg: where object can move)
+         *
+         * @param rightBound How far right (in pixel) can objects in the scene move. If object are initialized outside the bounds, they will not be able to move, unless physics is enabled, in which case they will not be able to enter the scene.
+         * @param bottomBound How far down (in pixel) can objects in the scene move. If object are initialized outside the bounds, they will not be able to move, unless physics is enabled, in which case they will not be able to enter the scene.
+         * @param activate Boolean, if true, bounds will be active by defualt, if false, bounds will be inactive by default
+         */
         Scene.prototype.setBoundaries = function (rightBound, bottomBound, activate) {
             var _this = this;
             if (activate === void 0) { activate = true; }
@@ -11911,18 +12430,29 @@ var ANVIL = (function () {
                 this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
             }
         };
+        /**
+         * Disables the boundaries of the scene
+         */
         Scene.prototype.disableBounds = function () {
             this.boundsActive = false;
             this.objects.forEach(function (object) {
                 object.disableBounds();
             });
         };
+        /**
+         * Enables the boundaries of the scene
+         */
         Scene.prototype.activateBounds = function () {
             this.boundsActive = true;
             this.objects.forEach(function (object) {
                 object.activateBounds();
             });
         };
+        /**
+         * Adds the specified GameObject to the scene
+         *
+         * @param object GameObject to add to the scene
+         */
         Scene.prototype.addObject = function (object) {
             object.scene = this.id;
             object.physicsEnabled = (this.physics) ? object.physicsEnabled : false;
@@ -11942,9 +12472,17 @@ var ANVIL = (function () {
             }
             this.objects.push(object);
         };
+        /**
+         * Clears the canvas that the scene is being drawn on
+         */
         Scene.prototype.clear = function () {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         };
+        /**
+         * Draws all of the objects, lights, and directional lights in the scene.
+         * Also updates each physics object and checks for collisions.
+         * It also recalculates the FPS if enabled.
+         */
         Scene.prototype.draw = function () {
             var _this = this;
             if (!this.readyToDraw)
@@ -12003,21 +12541,46 @@ var ANVIL = (function () {
                 this.ctx.fillText("FPS: " + calculateFPS(this.fpsBuffer), 5, 20);
             }
         };
+        /**
+         * Removes a GameObject from the scene
+         * @param object GameObject to remove from the scene
+         */
         Scene.prototype.removeObject = function (object) {
             this.objects.filter(function (compare) {
                 return !(compare.id == object.id);
             });
         };
+        /**
+         * Enables collisions between the specified objects
+         * Adds a CollisionMonitor to the scene
+         *
+         * @param o1 First object to check for collisions
+         * @param o2 Second object to check for collisions
+         * @param fo Function that runs when the objects collide (called once)
+         * @param ff Function that runs when the objects separate (called once)
+         */
         Scene.prototype.enableCollisionsBetween = function (o1, o2, fo, ff) {
             this.collisionMonitors.push([o1, o2, fo, ff, false]);
             this.collisionMonitors.push([o2, o1, fo, ff, false]);
         };
+        /**
+         * Binds the scene's camera to a GameObject
+         *
+         * @param object GameObject to bind the scene's camera to
+         */
         Scene.prototype.bindCamera = function (object) {
             this.cameraBind = object;
         };
+        /**
+         * Unbinds the scene's camera from a GameObject
+         */
         Scene.prototype.unbindCamera = function () {
             this.cameraBind = null;
         };
+        /**
+         * Moves the camera to a GameObject
+         * @param object GameObject to move the camera to
+         */
         Scene.prototype.cameraTo = function (object) {
             var sumOfX = 0;
             var sumOfY = 0;
@@ -12031,18 +12594,68 @@ var ANVIL = (function () {
             var middleOfCanvas = [this.width / 2, this.height / 2];
             this.cameraAngle = [middleOfObject[0] - middleOfCanvas[0], middleOfObject[1] - middleOfCanvas[1]];
         };
+        /**
+         * Moves the scene's camera
+         *
+         * @param vector Vector to move the scene's camera by
+         */
         Scene.prototype.moveCamera = function (vector) {
             this.cameraAngle = sumArrays(this.cameraAngle, vector);
         };
+        /**
+         * Enables FPS monitoring
+         */
         Scene.prototype.enableFPS = function () {
             this.fpsMonitoringEnabled = true;
         };
+        /**
+         * Disables FPS monitoring
+         */
         Scene.prototype.disableFPS = function () {
             this.fpsMonitoringEnabled = false;
         };
         return Scene;
     }());
+    /**
+     * @class SceneManager
+     * @classdesc SceneManager class, used for managing scenes and to transition between scenes
+     * @property {Object} scenes - Scenes in the scene manager
+     * @property {string} activeScene - ID of the active scene
+     * @property {number} width - Width of the canvas (Will resize the canvas to this width). By default is the width of the canvas element
+     * @property {number} height - Height of the canvas (Will resize the canvas to this height). By default is the width of the canvas element
+     * @property {HTMLCanvasElement} canvas - Canvas element to draw the scenes on
+     * @property {CanvasRenderingContext2D} ctx - Canvas rendering context of the canvas
+     * @property {string} sceneAnimation - Animation to use when transitioning between scenes
+     * @property {number} animationStartTime - Time when the animation started
+     * @property {number} animationRunTime - How long the animation should run for
+     * @property {Scene} animateTo - Scene to animate to
+     * @property {Array<string>} animationNames - Names of the animations that can be used
+     * @property {boolean} animationRunning - Whether or not the animation is running
+     * @property {boolean} fromScenePrevHadLights - Whether or not the scene that the animation is coming from had lighting enabled
+     * @property {boolean} toScenePrevHadLights - Whether or not the scene that the animation is going to had lighting enabled
+     * @example
+     * ```js
+     * const sceneManager = new SceneManager({
+     *      initialScene: scene,
+     *      canvas: document.getElementById("canvas")
+     * });
+     * ```
+     * @example
+     * ```js
+     * // Example animation between two scene
+     * const sceneManger = new SceneManager({
+     *      initialScene: scene,
+     *      canvas: document.getElementById("canvas")
+     * });
+     * sceneManager.addScene(scene2);
+     * sceneManager.animate("quickFade", scene2, 1000);
+     * ```
+     */
     var SceneManager = /** @class */ (function () {
+        /**
+         *
+         * @param options SceneManagerOptions object passed to initialize the scene manager
+         */
         function SceneManager(options) {
             var initialScene = options.initialScene;
             if (!initialScene)
@@ -12066,12 +12679,20 @@ var ANVIL = (function () {
             this.animationRunning = false;
             initialScene.isActiveScene = true;
         }
+        /**
+         * Changes the active scene, with no transition
+         * @param scene Scene to change to
+         */
         SceneManager.prototype.changeScene = function (scene) {
             this.scenes[this.activeScene].isActiveScene = false;
             this.scenes[scene.id] = scene;
             this.scenes[scene.id].isActiveScene = true;
             this.activeScene = scene.id;
         };
+        /**
+         * Adds a sceen to the scene manager
+         * @param scene Scene to add to the scene manager
+         */
         SceneManager.prototype.addScene = function (scene) {
             var arg1 = scene;
             this.scenes[arg1.id] = arg1;
@@ -12081,6 +12702,12 @@ var ANVIL = (function () {
             arg1.ctx = this.ctx;
             arg1.ready();
         };
+        /**
+         * Smoothly animates between scenes (unless lighting is enabled, in which case lighting is temporarily disabled as the animation is running)
+         * @param transition Name of the transition to use
+         * @param scene Scene to transition to
+         * @param duration Time (in ms) to run the transition for
+         */
         SceneManager.prototype.animate = function (transition, scene, duration) {
             if (duration === void 0) { duration = 1000; }
             if (!this.animationNames.includes(transition))
@@ -12094,6 +12721,9 @@ var ANVIL = (function () {
                 this.toScenePrevHadLights = this.scenes[this.animateTo.id].lighting;
             }
         };
+        /**
+         * Draws the active scene onto the canvas, also runs animations if they are running
+         */
         SceneManager.prototype.draw = function () {
             var _this = this;
             // check if animations are running
@@ -12176,7 +12806,32 @@ var ANVIL = (function () {
         };
         return SceneManager;
     }());
+    /**
+     * @class Input
+     * @classdesc Input class, used for handling input
+     * @property {boolean} active - Whether or not the input is active
+     * @property {string} key - Key that the input is bound to
+     * @property {number} fireRate - Fire rate of the input
+     * @property {string} id - Unique ID of the input
+     * @property {any} fireInterval - Interval that the input fires on
+     * @property {boolean} firing - Whether or not the input is firing
+     * @property {boolean} clickMonitor - Whether or not the input is a click monitor
+     * @property {Function} on - Function to run when the input is fired
+     * @example
+     * ```js
+     * const input = new Input("w", 100);
+     * input.on = () => {
+     *      console.log("w pressed");
+     * }
+     * input.activate(scene);
+     * ```
+     */
     var Input = /** @class */ (function () {
+        /**
+         *
+         * @param key The key that the input is bound to ("click" is you want to monitor clicks)
+         * @param fireRate How often the input fires (in ms)
+         */
         function Input(key, fireRate) {
             if (key == "click") {
                 this.clickMonitor = true;
@@ -12191,6 +12846,10 @@ var ANVIL = (function () {
             this.firing = false;
             this.active = false;
         }
+        /**
+         * Starts firing the on function ever fireRate ms
+         * @param e Event to pass to the on function
+         */
         Input.prototype.startFiring = function (e) {
             var _this = this;
             if (!this.firing) {
@@ -12203,12 +12862,19 @@ var ANVIL = (function () {
                 }, this.fireRate);
             }
         };
+        /**
+         * Stops firing the on function
+         */
         Input.prototype.stopFiring = function () {
             if (this.firing) {
                 this.firing = false;
                 clearInterval(this.fireInterval);
             }
         };
+        /**
+         * Activates the input monitor
+         * @param scene Scene to activate the input on (Only matters if the input is a click monitor)
+         */
         Input.prototype.activate = function (scene) {
             var _this = this;
             this.active = true;
@@ -12247,9 +12913,15 @@ var ANVIL = (function () {
                 });
             }
         };
+        /**
+         * Reactivates the input monitor (if it was deactivated- do not use input.active(scene) as this will cause the on function to be called twice every fireRate ms)
+         */
         Input.prototype.reactivate = function () {
             this.active = true;
         };
+        /**
+         * Temporarily deactivates the input monitor
+         */
         Input.prototype.deactivate = function () {
             this.active = false;
             this.stopFiring();
@@ -12257,20 +12929,6 @@ var ANVIL = (function () {
         return Input;
     }());
     var ANVIL = {
-        GPULightingKernel: GPULightingKernel,
-        isConvex: isConvex,
-        instanceOfDirectionalLight: instanceOfDirectionalLight,
-        getCentroid: getCentroid,
-        calculateFPS: calculateFPS,
-        findTopLeftMostPoint: findTopLeftMostPoint,
-        isSquare: isSquare,
-        distance: distance,
-        getBoundingBox: getBoundingBox,
-        sumArrays: sumArrays,
-        multArrays: multArrays,
-        uid: uid,
-        checkSquareCollision: checkSquareCollision,
-        checkCollision: checkCollision,
         GameObject: GameObject,
         Polygon: Polygon,
         Sprite: Sprite,
