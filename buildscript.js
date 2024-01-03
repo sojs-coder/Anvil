@@ -14,8 +14,12 @@ const build = order.map((path) => {
         var lines = data.split('\n');
 
         lines = lines.filter((line) => {
-            return line.match(/require\(['"].+["']\)/g) == null;
+            return (line.match(/require\(['"].+["']\)/g) == null) && (line.match(/module.exports/g) == null);
         });
+        // const ANVIL = (() => {
+        lines.splice(0, 0, 'const ANVIL = (() => {');
+        lines.push('return ANVIL;');
+        lines.push('})();')
         data = lines.join('\n')
     }
     // add comment
