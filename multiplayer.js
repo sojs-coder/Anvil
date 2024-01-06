@@ -9,6 +9,14 @@ app.get("/", (req, res) => {
 });
 const server = http.createServer(app);
 
+
+const scene = new Scene({
+    lighting: true,
+    lightOptions: {
+        ambient: 0.2
+    }
+})
+
 const multiplayerSever = new MultiPlayerServer({
 
     // server config
@@ -25,12 +33,7 @@ const multiplayerSever = new MultiPlayerServer({
         }
     },
     sceneManager: new MultiPlayerSceneManager({
-        initialScene: new Scene({
-            lighting: true,
-            lightOptions: {
-                ambient: 0.2
-            }
-        }),
+        initialScene: scene,
         showPlayerLabels: true
     }),
 
