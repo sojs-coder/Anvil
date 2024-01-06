@@ -1465,9 +1465,9 @@ class GameObject {
      * @param polygon The polygon (lower case, not type Polygon) to check for a collision with
      * @returns Boolean, true of the object is colliding with the other object, false otherwise
      */
-    checkPolygonalCollision(ploygon: Array<Point>) {
+    checkPolygonalCollision(polygon: Array<Point>) {
         var p1 = this.polify();
-        var p2 = ploygon;
+        var p2 = polygon;
         var square = isSquare(p2);
         var convex = isConvex(p2);
         if ((this.square || this.convex) && (square || convex)) {
