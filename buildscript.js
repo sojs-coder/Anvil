@@ -14,7 +14,7 @@ const build = order.map((path) => {
         var lines = data.split('\n');
 
         lines = lines.filter((line) => {
-            return (line.match(/require\(['"].+["']\)/g) == null) && (line.match(/module.exports/g) == null);
+            return (line.match(/require\(['"].+["']\)/g) == null) && (line.match(/module.exports/g) == null) && line.match(/export {[\t\n\r\w\d\s,]+}/g) == null && line.match(/export/g) == null;
         });
         // const ANVIL = (() => {
         lines.splice(0, 0, 'const ANVIL = (() => {');

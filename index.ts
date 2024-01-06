@@ -69,6 +69,7 @@ interface PlayerClientOptions {
  * @property {any} [_state] - Internal state of the GameObject, do not modify, but you can pass an initial state to the GameObject (use "_state": { ...gameObject, ...newProperties})
  * @property {GameObjectOptions} [gameObjectOptions={}] - Options for the GameObject (applied to clones when cloned using GameObject.From())
  * @property {any} [meta] - Any meta data you want to store in the GameObject (Do not overwrite "label", "player", or "id" if you are using a MultiPlayerSceneManager)
+ * @property {Array<GameObject>} [blocks] - Array of GameObjects that are blocked by this GameObject
  * @example
  * ```js
  *  const options: GameObjectOptions = {
@@ -94,6 +95,7 @@ interface GameObjectOptions {
     _state?: any;
     gameObjectOptions?: GameObjectOptions;
     meta?: any;
+    blocks?: Array<GameObject>;
 }
 
 /**
@@ -1094,6 +1096,8 @@ function checkCollision(polygon: Point[], pointsArray: Array<Point>): Boolean {
  * @property {GameObjectOptions} gameObjectOptions - Game object options of the game object (for serialization and recreation)
  * @property {any} meta - Meta data of the object
  * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
+ * @property {Array<GameObject>} blocks - List of objects that this object blocks
+ * @property {Array<GameObject>} blockedBy - List of objects that block this object
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -1126,6 +1130,8 @@ class GameObject {
     gameObjectOptions: GameObjectOptions; // options for the game object
     meta: any;
     isLocalPlayer: boolean;
+    blocks: Array<GameObject>;
+    blockedBy: Array<GameObject>;
     [key: string]: any;
 
     /**
@@ -1161,6 +1167,11 @@ class GameObject {
         this.convex = options.convex || false; // assume the worst
         this.meta = options.meta || {};
         this.isLocalPlayer = false;
+        this.blocks = options.blocks || [];
+        this.blockedBy = [];
+        this.blocks.forEach((object: GameObject)=> {
+            object.blockedBy.push(this);
+        })
 
     }
     static From(options: GameObjectOptions) {
@@ -1296,6 +1307,16 @@ class GameObject {
     }
 
     /**
+     * Returns the gameobject represented as an array of points, with an offset applied.
+     * 
+     * @param offset The offset to apply to the object
+     * @returns List of points that make up the object, with the offset applied
+     */
+    polifyWithOffset(offset: Vec2): Point[] {
+        return [];
+    }
+
+    /**
      * Draws the object's label on top of the object
      * 
      * @param options The DrawOptions for the object
@@ -1342,7 +1363,7 @@ class GameObject {
     }
 
     /**
-     * Moves the object by a vector (no forces involved)
+     * Moves an object that has physics enabled by a vector (no forces pr boundaries involved)
      * 
      * @param vector The vector to move the object by
      * @returns Whether the object was moved or not (if it was out of bounds, it will not move)
@@ -1379,6 +1400,13 @@ class GameObject {
      */
     move(vector: Vec2, continueAfterPhysics = true): Boolean {
         var newCoords = <Vec2>sumArrays(this.coordinates, vector);
+        var newPoly = this.polifyWithOffset(vector);
+        // check to see if the object is colliding with any objects in `blockedBy`
+        for (var object of this.blockedBy) {
+            if (object.checkPolygonalCollision(newPoly)) {
+                return false;
+            }
+        }
         if (this.physicsEnabled) {
             Matter.Body.setVelocity(this.body, { x: vector[0] + this.body.velocity.x, y: vector[1] + this.body.velocity.y });
             return true;
@@ -1425,6 +1453,24 @@ class GameObject {
         var p2 = object.polify();
 
         if ((this.square || this.convex) && (object.square || object.convex)) {
+            return checkSquareCollision(p1, p2);
+        } else {
+            return checkCollision(p1, p2);
+        }
+    }
+
+    /**
+     * Checks for a collision with a polygon
+     * 
+     * @param polygon The polygon (lower case, not type Polygon) to check for a collision with
+     * @returns Boolean, true of the object is colliding with the other object, false otherwise
+     */
+    checkPolygonalCollision(ploygon: Array<Point>) {
+        var p1 = this.polify();
+        var p2 = ploygon;
+        var square = isSquare(p2);
+        var convex = isConvex(p2);
+        if ((this.square || this.convex) && (square || convex)) {
             return checkSquareCollision(p1, p2);
         } else {
             return checkCollision(p1, p2);
@@ -1524,6 +1570,20 @@ class Polygon extends GameObject {
     }
 
     /**
+     * Returns a list of points that make up the polygon, with an offset applied.
+     * 
+     * @param offset The offset to apply to the polygon
+     * @returns The vertices of the polygon, with the offset applied
+     */
+    polifyWithOffset(offset: Vec2): Vec2[] {
+        var newPoints: Vec2[] = [];
+        for (var point of this.points) {
+            newPoints.push(<Vec2>sumArrays(point, offset));
+        }
+        return newPoints;
+    }
+
+    /**
      * Calculates the width of the polygon.
      * @returns The width of the polygon.
      */
@@ -1581,7 +1641,8 @@ class Polygon extends GameObject {
      */
     move(vector: Vec2): Boolean {
         var moved: Boolean = super.move(vector);
-        var newPoints: Point[] = []
+        if(!moved) return false;
+        var newPoints: Point[] = [];
         for (var point of this.points) {
             var newCoords = <Vec2>sumArrays(point, vector);
             if (this.boundsActive) {
@@ -1738,6 +1799,21 @@ class Sprite extends GameObject {
         var point3: Point = [this.coordinates[0] + this.width, this.coordinates[1] + this.height];
         var point4: Point = [this.coordinates[0], this.coordinates[1] + this.height];
         return [point1, point2, point3, point4]
+    }
+
+    /**
+     * Calculates the vertices of the sprite, with an offset applied
+     * 
+     * @param offset The offset to apply to the sprite
+     * @returns The vertices of the sprite, with the offset applied
+     */
+    polifyWithOffset(offset: Vec2): Point[] {
+        var points = this.polify();
+        var newPoints: Point[] = [];
+        for (var point of points) {
+            newPoints.push(<Point>sumArrays(point, offset));
+        }
+        return newPoints;
     }
 }
 
@@ -3865,6 +3941,20 @@ var ANVIL = {
     MultiPlayerClientInput,
     MultiPlayerInputHandler,
     ServerInputHandler,
+
+    isConvex,
+    instanceOfDirectionalLight,
+    getCentroid,
+    calculateFPS,
+    findTopLeftMostPoint,
+    isSquare,
+    distance,
+    getBoundingBox,
+    sumArrays,
+    multArrays,
+    uid,
+    checkSquareCollision,
+    checkCollision,
 };
 export {
     GameObject,

@@ -11519,6 +11519,8 @@ function checkCollision(polygon, pointsArray) {
  * @property {GameObjectOptions} gameObjectOptions - Game object options of the game object (for serialization and recreation)
  * @property {any} meta - Meta data of the object
  * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
+ * @property {Array<GameObject>} blocks - List of objects that this object blocks
+ * @property {Array<GameObject>} blockedBy - List of objects that block this object
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -11540,6 +11542,7 @@ var GameObject = /** @class */ (function () {
      */
     function GameObject(options) {
         if (options === void 0) { options = {}; }
+        var _this = this;
         this.gameObjectOptions = options;
         // will physics work on this object?
         this.physicsEnabled = options.physicsEnabled || false;
@@ -11563,6 +11566,11 @@ var GameObject = /** @class */ (function () {
         this.convex = options.convex || false; // assume the worst
         this.meta = options.meta || {};
         this.isLocalPlayer = false;
+        this.blocks = options.blocks || [];
+        this.blockedBy = [];
+        this.blocks.forEach(function (object) {
+            object.blockedBy.push(_this);
+        });
     }
     GameObject.From = function (options) {
         var object;
@@ -11695,6 +11703,20 @@ var GameObject = /** @class */ (function () {
     GameObject.prototype.polify = function () {
         return [];
     };
+    /**
+     * Returns the gameobject represented as an array of points, with an offset applied.
+     *
+     * @param offset The offset to apply to the object
+     * @returns List of points that make up the object, with the offset applied
+     */
+    GameObject.prototype.polifyWithOffset = function (offset) {
+        return [];
+    };
+    /**
+     * Draws the object's label on top of the object
+     *
+     * @param options The DrawOptions for the object
+     */
     GameObject.prototype.drawLabel = function (options) {
         if (options.ctx) {
             options.ctx.font = "15px Arial";
@@ -11733,7 +11755,7 @@ var GameObject = /** @class */ (function () {
         this.boundsActive = true;
     };
     /**
-     * Moves the object by a vector (no forces involved)
+     * Moves an object that has physics enabled by a vector (no forces pr boundaries involved)
      *
      * @param vector The vector to move the object by
      * @returns Whether the object was moved or not (if it was out of bounds, it will not move)
@@ -11769,6 +11791,14 @@ var GameObject = /** @class */ (function () {
     GameObject.prototype.move = function (vector, continueAfterPhysics) {
         if (continueAfterPhysics === void 0) { continueAfterPhysics = true; }
         var newCoords = sumArrays(this.coordinates, vector);
+        var newPoly = this.polifyWithOffset(vector);
+        // check to see if the object is colliding with any objects in `blockedBy`
+        for (var _i = 0, _a = this.blockedBy; _i < _a.length; _i++) {
+            var object = _a[_i];
+            if (object.checkPolygonalCollision(newPoly)) {
+                return false;
+            }
+        }
         if (this.physicsEnabled) {
             Matter.Body.setVelocity(this.body, { x: vector[0] + this.body.velocity.x, y: vector[1] + this.body.velocity.y });
             return true;
@@ -11778,6 +11808,7 @@ var GameObject = /** @class */ (function () {
                 return false;
         }
         if (this.boundsActive) {
+            console.log("bounds active");
             if (newCoords[0] < 0 || newCoords[0] + this.getWidth() > this.bounds[0] || newCoords[1] < 0 || newCoords[1] + this.getHeight() > this.bounds[1]) {
                 var passesRightBound = (newCoords[0] + this.getWidth() > this.bounds[0]);
                 var passesLeftBound = (newCoords[0] < 0);
@@ -11817,6 +11848,24 @@ var GameObject = /** @class */ (function () {
         var p1 = this.polify();
         var p2 = object.polify();
         if ((this.square || this.convex) && (object.square || object.convex)) {
+            return checkSquareCollision(p1, p2);
+        }
+        else {
+            return checkCollision(p1, p2);
+        }
+    };
+    /**
+     * Checks for a collision with a polygon
+     *
+     * @param polygon The polygon (lower case, not type Polygon) to check for a collision with
+     * @returns Boolean, true of the object is colliding with the other object, false otherwise
+     */
+    GameObject.prototype.checkPolygonalCollision = function (ploygon) {
+        var p1 = this.polify();
+        var p2 = ploygon;
+        var square = isSquare(p2);
+        var convex = isConvex(p2);
+        if ((this.square || this.convex) && (square || convex)) {
             return checkSquareCollision(p1, p2);
         }
         else {
@@ -11912,6 +11961,20 @@ var Polygon = /** @class */ (function (_super) {
         return this.points;
     };
     /**
+     * Returns a list of points that make up the polygon, with an offset applied.
+     *
+     * @param offset The offset to apply to the polygon
+     * @returns The vertices of the polygon, with the offset applied
+     */
+    Polygon.prototype.polifyWithOffset = function (offset) {
+        var newPoints = [];
+        for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
+            var point = _a[_i];
+            newPoints.push(sumArrays(point, offset));
+        }
+        return newPoints;
+    };
+    /**
      * Calculates the width of the polygon.
      * @returns The width of the polygon.
      */
@@ -11959,6 +12022,8 @@ var Polygon = /** @class */ (function (_super) {
      */
     Polygon.prototype.move = function (vector) {
         var moved = _super.prototype.move.call(this, vector);
+        if (!moved)
+            return false;
         var newPoints = [];
         for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
             var point = _a[_i];
@@ -12107,6 +12172,21 @@ var Sprite = /** @class */ (function (_super) {
         var point4 = [this.coordinates[0], this.coordinates[1] + this.height];
         return [point1, point2, point3, point4];
     };
+    /**
+     * Calculates the vertices of the sprite, with an offset applied
+     *
+     * @param offset The offset to apply to the sprite
+     * @returns The vertices of the sprite, with the offset applied
+     */
+    Sprite.prototype.polifyWithOffset = function (offset) {
+        var points = this.polify();
+        var newPoints = [];
+        for (var _i = 0, points_1 = points; _i < points_1.length; _i++) {
+            var point = points_1[_i];
+            newPoints.push(sumArrays(point, offset));
+        }
+        return newPoints;
+    };
     return Sprite;
 }(GameObject));
 /**
@@ -12224,8 +12304,8 @@ var Light = /** @class */ (function () {
  * @devnote Directional lights are not fully implemented yet. They are not recommended for use.
  * @example
  * ```js
- * // light at position [0, 0], diffuse 0.5, strength 0.8, color [255, 255, 255] (white)
- * const light = new DirectionalLight([0, 0], 0.5, 0.8, [255, 255, 255]);
+ * // light at position [0, 0], diffuse 150, strength 0.8, color [255, 255, 255] (white)
+ * const light = new DirectionalLight([0, 0], 150, 0.8, [255, 255, 255]);
  * ```
  */
 var DirectionalLight = /** @class */ (function (_super) {
@@ -12335,6 +12415,7 @@ var DirectionalLight = /** @class */ (function (_super) {
  * @property {Array<number>} formattedDLights - Formatted directional lights for the diffuse kernel
  * @property {boolean} lightsPreFormatted - Whether or not the lights are pre-formatted
  * @property {boolean} isClient - Whether or not the scene is running on the client
+ * @property {Object} GPUSettings - GPU.js settings
  *
  * @example
  * ```js
@@ -12435,6 +12516,9 @@ var Scene = /** @class */ (function () {
         this.configureLightingKernel();
         this.readyToDraw = true;
     };
+    /**
+     * Configures the lighting kernel (if lighting is enabled and the scene is on the client side)
+     */
     Scene.prototype.configureLightingKernel = function () {
         if (this.lighting && this.isClient) {
             this.diffuseKernel = this.gpu.createKernel(GPULightingKernel, {
@@ -12492,6 +12576,7 @@ var Scene = /** @class */ (function () {
         return dlights.flat(2);
     };
     /**
+     * Configures the scene to draw on the provided canvas
      *
      * @param canvas Canvas that the scene will draw on
      * @param ctx The canvas rendering context of the scene
@@ -12547,25 +12632,25 @@ var Scene = /** @class */ (function () {
                 dlights.push(dlight);
             }
         }
-        // lights = this.lights.filter((light) => {
-        //     // only draw if within the camera view
-        //     var cameraX = this.cameraAngle[0];
-        //     var cameraY = this.cameraAngle[1];
-        //     var x = light.point[0];
-        //     var y = light.point[1];
-        //     var dx = x - cameraX;
-        //     var dy = y - cameraY;
-        //     var sceneWidth = this.canvas.width;
-        //     var sceneHeight = this.canvas.height;
-        //     var diffuseFactor = light.diffuse;
-        //     var isBoundedLeft = dx + diffuseFactor > 0;
-        //     var isBoundedRight = dx - diffuseFactor < sceneWidth;
-        //     var isBoundedTop = dy + diffuseFactor > 0;
-        //     var isBoundedBottom = dy - diffuseFactor < sceneHeight;
-        //     // take in a account the diffuse factor
-        //     var isInBounds = isBoundedLeft && isBoundedRight && isBoundedTop && isBoundedBottom;
-        //     return isInBounds;
-        // });
+        lights = this.lights.filter(function (light) {
+            // only draw if within the camera view
+            var cameraX = _this.cameraAngle[0];
+            var cameraY = _this.cameraAngle[1];
+            var x = light.point[0];
+            var y = light.point[1];
+            var dx = x - cameraX;
+            var dy = y - cameraY;
+            var sceneWidth = _this.canvas.width;
+            var sceneHeight = _this.canvas.height;
+            var diffuseFactor = light.diffuse;
+            var isBoundedLeft = dx + diffuseFactor > 0;
+            var isBoundedRight = dx - diffuseFactor < sceneWidth;
+            var isBoundedTop = dy + diffuseFactor > 0;
+            var isBoundedBottom = dy - diffuseFactor < sceneHeight;
+            // take in a account the diffuse factor
+            var isInBounds = isBoundedLeft && isBoundedRight && isBoundedTop && isBoundedBottom;
+            return isInBounds;
+        });
         var dlights = this.dlights;
         var width = this.canvas.width;
         var height = this.canvas.height;
@@ -12662,6 +12747,9 @@ var Scene = /** @class */ (function () {
     Scene.prototype.clear = function () {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     };
+    /**
+     * Checks to see if the scene is configured to draw, if not, it configures it (eg: initializes lighting kernel, etc.)
+     */
     Scene.prototype.check = function () {
         if (this.lighting && this.isClient && !this.gpu) {
             if (typeof GPU == "function" && this.lighting && this.isClient) {
@@ -12675,6 +12763,9 @@ var Scene = /** @class */ (function () {
             this.configureLightingKernel();
         }
     };
+    /**
+     * Draws the scene without updating any of the objects
+     */
     Scene.prototype.plainDraw = function () {
         var _this = this;
         this.check();
@@ -12705,6 +12796,9 @@ var Scene = /** @class */ (function () {
             this.ctx.fillText("FPS: " + calculateFPS(this.fpsBuffer), 5, 20);
         }
     };
+    /**
+     * Updates all lights in the scene
+     */
     Scene.prototype.updateLights = function () {
         var _this = this;
         this.lights.forEach(function (l) {
@@ -12780,9 +12874,16 @@ var Scene = /** @class */ (function () {
             this.ctx.fillText("FPS: " + calculateFPS(this.fpsBuffer), 5, 20);
         }
     };
+    /**
+     * Reloads scene objects from the passed list, used for multiplayer when objects are handled on the server
+     * @param objects Objects to draw from
+     */
     Scene.prototype.drawFromPassedObjects = function (objects) {
         this.objects = objects;
     };
+    /**
+     * Updates all of the objects, lights, physics, and collision monitors in the scene
+     */
     Scene.prototype.updateAll = function () {
         if (!this.readyToDraw)
             return;
@@ -12914,6 +13015,8 @@ var Scene = /** @class */ (function () {
  * @property {boolean} animationRunning - Whether or not the animation is running
  * @property {boolean} fromScenePrevHadLights - Whether or not the scene that the animation is coming from had lighting enabled
  * @property {boolean} toScenePrevHadLights - Whether or not the scene that the animation is going to had lighting enabled
+ * @property {boolean} start - Whether or not to start the scene manager when it is initialized (true by default)
+ *
  * @example
  * ```js
  * const sceneManager = new SceneManager({
@@ -13158,7 +13261,7 @@ var Input = /** @class */ (function () {
     };
     /**
      * Activates the input monitor
-     * @param scene Scene to activate the input on (Only matters if the input is a click monitor)
+     * @param activateOn Scene to activate the input on (Only matters if the input is a click monitor)
      */
     Input.prototype.activate = function (activateOn) {
         var _this = this;
@@ -13213,7 +13316,25 @@ var Input = /** @class */ (function () {
     };
     return Input;
 }());
+/**
+ * @class MultiPlayerClientInput
+ * @classdesc MultiPlayerClientInput class, used for handling input on the client side of a multiplayer game
+ * @property {boolean} down - Whether or key is currently down
+ * @property {string} key - Key that the input is bound to
+ * @property {boolean} sleeping - Whether or not the input is sleeping (waiting for the player to be ready)
+ * @property {any} socket - Socket.io socket to emit events on
+ * @static {Array<MultiPlayerClientInput>} activeInputs - Array of all active inputs
+ * @example
+ * ```js
+ * const input = new MultiPlayerClientInput("w", playerClient); // passes all "w" key presses to the server
+ * ```
+ */
 var MultiPlayerClientInput = /** @class */ (function () {
+    /**
+     *
+     * @param key The key to listen to events on
+     * @param playerClient The playerClient instance that the input is bound to
+     */
     function MultiPlayerClientInput(key, playerClient) {
         this.key = key;
         this.down = false;
@@ -13227,6 +13348,10 @@ var MultiPlayerClientInput = /** @class */ (function () {
             playerClient.inputStack.push(this);
         }
     }
+    /**
+     * Activates the input (called when playerClient is ready)
+     * @param playerClient PlayerClient instance to activate the input on
+     */
     MultiPlayerClientInput.prototype.activate = function (playerClient) {
         var _this = this;
         this.socket = playerClient.socket;
@@ -13247,13 +13372,65 @@ var MultiPlayerClientInput = /** @class */ (function () {
     MultiPlayerClientInput.activeInputs = [];
     return MultiPlayerClientInput;
 }());
+/**
+ * @class MultiplayerInputHandler
+ * @classdesc MultiplayerInputHandler class, used for handling input on the server side of a multiplayer game
+ * @property {Array<ServerInputHandler>} monitors - Array of ServerInputHandlers to monitor
+ * @example
+ * ```js
+ * const inputHandler = new MultiPlayerInputHandler({
+ *      monitors: [
+ *          new ServerInputHandler({
+ *          key: "w",
+ *          fireRate: 10,
+ *          on: (socket, playerObject) => {
+ *              playerObject.move(0, -1);
+ *          }
+ *      }),
+ *      new ServerInputHandler({
+ *          key: "s",
+ *          fireRate: 10,
+ *          on: (socket, playerObject) => {
+ *              playerObject.move(0, 1);
+ *          }
+ *      })
+ *    ]
+ * });
+ * ```
+ */
 var MultiPlayerInputHandler = /** @class */ (function () {
     function MultiPlayerInputHandler(options) {
         this.monitors = options.monitors;
     }
     return MultiPlayerInputHandler;
 }());
+/**
+ * @class MultiPlayerServerInput
+ * @classdesc MultiPlayerServerInput class, used for handling input on the server side of a multiplayer game
+ * @property {string} key - Key that the input is bound to
+ * @property {number} fireRate - Fire rate of the input
+ * @property {string} id - Unique ID of the input
+ * @property {[key: string]: NodeJS.Timeout} fireIntervals - Reference to all of the fire intervals
+ * @property {[key: string]: boolean} firing - Whether or not the input is firing for each socket
+ * @property {boolean} active - Whether or not the input is active
+ * @property {MultiPlayerSceneManager} sceneManager - SceneManager instance that the input is bound to
+ * @property {Function} on - Function to run when the input is fired (EventOnFunction)
+ * @example
+ * ```js
+ * const input = new MultiPlayerServerInput({
+ *      key: "w",
+ *      fireRate: 10,
+ *      on: (socket, playerObject) => {
+ *      playerObject.move(0, -1);
+ *      }
+ * });
+ * ```
+ */
 var ServerInputHandler = /** @class */ (function () {
+    /**
+     *
+     * @param options ServerInputHandlerOptions object passed to initialize the ServerInputHandler
+     */
     function ServerInputHandler(options) {
         var _this = this;
         this.key = options.key;
@@ -13269,10 +13446,18 @@ var ServerInputHandler = /** @class */ (function () {
             }
         };
     }
+    /**
+     * Activates the input on the given sceneManager (MultiPlayerSceneManager instance)
+     * @param sceneManager SceneManager instance to activate the input on
+     */
     ServerInputHandler.prototype.init = function (sceneManager) {
         this.sceneManager = sceneManager;
         this.active = true;
     };
+    /**
+     * Activates the input on the given socket
+     * @param socket Socket.io socket to activate the input on
+     */
     ServerInputHandler.prototype.activateOn = function (socket) {
         var _this = this;
         socket.on("__key_down__", function (key) {
@@ -13286,6 +13471,10 @@ var ServerInputHandler = /** @class */ (function () {
             }
         });
     };
+    /**
+     * Fires the input on a given socket every fireRate ms
+     * @param socket Socket.io socket to start firing the input on
+     */
     ServerInputHandler.prototype.startFiring = function (socket) {
         var _this = this;
         if (!this.firing[socket.id]) {
@@ -13302,6 +13491,10 @@ var ServerInputHandler = /** @class */ (function () {
             }, this.fireRate);
         }
     };
+    /**
+     * Stops firing the input to a given socket
+     * @param socket Socket.io socket to stop firing the input on
+     */
     ServerInputHandler.prototype.stopFiring = function (socket) {
         if (this.firing[socket.id]) {
             this.firing[socket.id] = false;
@@ -13310,7 +13503,20 @@ var ServerInputHandler = /** @class */ (function () {
     };
     return ServerInputHandler;
 }());
+/**
+ * @class Player
+ * @classdesc Player class, used for managing players in a multiplayer game. Handled automatically when using MultiPlayerServer
+ * @property {string} id - ID of the player
+ * @property {string} label - Label of the player
+ * @property {any} socket - Socket.io socket of the player
+ * @property {GameObject} gameObject - GameObject of the player
+ * @property {string | null} inSceneID - ID of the scene that the player is in
+ */
 var Player = /** @class */ (function () {
+    /**
+     *
+     * @param options PlayerOptions object passed to initialize the Player
+     */
     function Player(options) {
         this.id = options.id;
         this.label = options.label;
@@ -13324,17 +13530,44 @@ var Player = /** @class */ (function () {
         };
         this.inSceneID = null;
     }
+    /**
+     * Changes the scene that the player is in
+     * @param scene Scene to enter
+     */
     Player.prototype.enterScene = function (scene) {
         scene.addObject(this.gameObject);
         this.inSceneID = scene.id;
     };
+    /**
+     * Emits the player's data to the client
+     */
     Player.prototype.emit = function () {
         this.socket.emit("__player_data__", this.gameObject);
     };
     return Player;
 }());
+/**
+ * @class MultiPlayerSceneManager
+ * @classdesc MultiPlayerSceneManager class, used for managing scenes, players, and transitions between scenes in a multiplayer game
+ * @property {Array<Player>} players - Array of players in the scene manager
+ * @property {boolean} showPlayerLabels - Whether or not to show player labels
+ * @example
+ * ```js
+ * const sceneManager = new MultiPlayerSceneManager({
+ *      initialScene: scene,
+ *      canvas: createCanvas(), // create a synthetic canvas... nothing will be rendered on it, it is just for SceneManager to use under the hood
+ *      width: 500,
+ *      height: 500,
+ *      showPlayerLabels: true
+ * });
+ * ```
+ */
 var MultiPlayerSceneManager = /** @class */ (function (_super) {
     __extends(MultiPlayerSceneManager, _super);
+    /**
+     *
+     * @param options MultiPlayerSceneManagerOptions object passed to initialize the MultiPlayerSceneManager
+     */
     function MultiPlayerSceneManager(options) {
         var _this = _super.call(this, __assign(__assign({}, options), { canvas: createCanvas(options.width || 500, options.height || 500), width: options.width || 500, height: options.height || 500, start: false })) || this;
         _this.players = [];
@@ -13342,19 +13575,48 @@ var MultiPlayerSceneManager = /** @class */ (function (_super) {
         _this.draw();
         return _this;
     }
+    /**
+     * Adds a player into the scene manager
+     * @param player Player to add to the scene manager
+     */
     MultiPlayerSceneManager.prototype.addPlayer = function (player) {
         player.gameObject.meta.showLabel = this.showPlayerLabels;
         this.players.push(player);
     };
+    /**
+     * Removes a player from the scene manager
+     * @param player Player to remove from the scene manager
+     */
     MultiPlayerSceneManager.prototype.removePlayer = function (player) {
         this.players = this.players.filter(function (p) { return p.id != player.id; });
     };
+    /**
+     * Retrieves a given player from the scene manager. Has O(n) time complexity, so not recommended to use often
+     * @param id ID of the player to get
+     * @returns The player with the given ID
+     */
     MultiPlayerSceneManager.prototype.getPlayer = function (id) {
         return this.players.filter(function (p) { return p.id == id; })[0];
     };
+    /**
+     * Retrieves a given player from the scene manager. Has O(n) time complexity, so not recommended to use often
+     * @param label Label of the player to get
+     * @returns The first player with the given label
+     */
     MultiPlayerSceneManager.prototype.getPlayerByLabel = function (label) {
         return this.players.filter(function (p) { return p.label == label; })[0];
     };
+    /**
+     * Gets all players that match a given label
+     * @param label Label of the players to get
+     * @returns Array of players with the given label (eg: if multiple players have the same label)
+     */
+    MultiPlayerSceneManager.prototype.getPlayersByLabel = function (label) {
+        return this.players.filter(function (p) { return p.label == label; });
+    };
+    /**
+     * Updates all scenes with players in them
+     */
     MultiPlayerSceneManager.prototype.draw = function () {
         var _this = this;
         // filter out the scenes with no players in them
@@ -13370,7 +13632,103 @@ var MultiPlayerSceneManager = /** @class */ (function (_super) {
     };
     return MultiPlayerSceneManager;
 }(SceneManager));
+/**
+ * @class MultiPlayerServer
+ * @classdesc MultiPlayerServer class, used for constructing, running, and managing a multiplayer server
+ * @property {Array<Connection>} socketConnections - Array of socket connections that the server is connected to
+ * @property {Function} onNewConnection - Function to run when a new connection is made
+ * @property {Function} onDisconnect - Function to run when a connection is disconnected
+ * @property {any} io - Socket.io instance
+ * @property {MultiPlayerSceneManager} sceneManager - SceneManager instance that the server is using
+ * @property {number} tickSpeed - Speed (in ms) of the server tick (Default: 1000/60)
+ * @property {GameObject} newPlayerObject - GameObject to use when a new player joins the server
+ * @property {MultiPlayerInputHandler} inputHandler - InputHandler to use on the server
+ * @property {Function} onNewPlayer - Function to run when a new player joins the server. Should return a GameObject and a label for the player, or a promise that will resolve into a GameObject and a label for the player. If no function is provided, the GameObject will be a clone of newPlayerObject
+ *
+ * @example
+ * ```js
+ * const multiplayerSever = new MultiPlayerServer({
+ *
+ *  // server config
+ *  httpServer: server, // const server = http.createServer(=);
+ *  showPlayerLabels: true,
+ *  port: 3000,
+ *  // game config
+ *  newPlayerObject: {
+ *      class: Polygon,
+ *      options: {
+ *          points: [[0,0],[100,0],[100,100],[0,100]],
+ *          backgroundColor: "red",
+ *      }
+ *  },
+ *  sceneManager: new MultiPlayerSceneManager({
+ *      initialScene: new Scene({
+ *          lighting: true,
+ *          lightOptions: {
+ *              ambient: 0.2
+ *          }
+ *      }),
+ *      showPlayerLabels: true
+ *  }),
+ *
+ *   // events
+ *  onNewConnection: () => {
+ *      console.log('new connection');
+ *  },
+ *  onDisconnect: () => {
+ *      console.log('disconnected');
+ *  },
+ *  onNewPlayer: (socket, id, data) => {
+ *      console.log("new player", id, data);
+ *      gameObject = new Polygon({
+ *          points: [[0,0],[100,0],[100,100],[0,100]],
+ *          backgroundColor: "red",
+ *      });
+ *      return new Promise((resolve, reject) => {
+ *          socket.on("send_username", (username) => {
+ *              console.log("got username", username)
+ *              resolve([gameObject, username])
+ *          });
+ *      })
+ *  },
+ *
+ *  // input
+ *  inputHandler: new MultiPlayerInputHandler({
+ *      monitors: [
+ *          new ServerInputHandler({
+ *              key: "w",
+ *              on: (socket, playerGameObject) => {
+ *                  playerGameObject.move([0, -10])
+ *              }
+ *          }),
+ *          new ServerInputHandler({
+ *              key: "a",
+ *              on: (socket, playerGameObject) => {
+ *                  playerGameObject.move([-10,0])
+ *              }
+ *          }),
+ *          new ServerInputHandler({
+ *              key: "s",
+ *              on: (socket, playerGameObject) => {
+ *                  playerGameObject.move([0, 10])
+ *              }
+ *          }),
+ *          new ServerInputHandler({
+ *              key: "d",
+ *              on: (socket, playerGameObject) => {
+ *                  playerGameObject.move([10,0])
+ *              }
+ *          })
+ *
+ *      ]
+ *  })
+ *});
+ */
 var MultiPlayerServer = /** @class */ (function () {
+    /**
+     *
+     * @param multiPlayerServerOptions MultiPlayerServerOptions object passed to initialize the MultiPlayerServer
+     */
     function MultiPlayerServer(multiPlayerServerOptions) {
         var _this = this;
         var io = socketio(multiPlayerServerOptions.httpServer);
@@ -13383,7 +13741,10 @@ var MultiPlayerServer = /** @class */ (function () {
         this.io = io;
         this.sceneManager = multiPlayerServerOptions.sceneManager;
         this.tickSpeed = multiPlayerServerOptions.tickSpeed || 1000 / 60;
-        this.newPlayerObject = multiPlayerServerOptions.newPlayerObject || new GameObject();
+        this.newPlayerObject = multiPlayerServerOptions.newPlayerObject || {
+            class: GameObject,
+            options: {}
+        };
         this.onNewPlayer = multiPlayerServerOptions.onNewPlayer || (function (socket, id) {
             return [new _this.newPlayerObject.class(_this.newPlayerObject.options), id];
         });
@@ -13398,6 +13759,9 @@ var MultiPlayerServer = /** @class */ (function () {
             (multiPlayerServerOptions.serverLive) ? multiPlayerServerOptions.serverLive() : (function () { })();
         });
     }
+    /**
+     * Ticks the server 1 tick (called automatically ever tickSpeed ms)
+     */
     MultiPlayerServer.prototype.tick = function () {
         var _this = this;
         this.sceneManager.players.forEach(function (player) {
@@ -13425,6 +13789,10 @@ var MultiPlayerServer = /** @class */ (function () {
             _this.tick();
         }, this.tickSpeed);
     };
+    /**
+     * Adds a connection and fires onNewConnection event
+     * @param socket Socket.io socket to add to the server
+     */
     MultiPlayerServer.prototype.addSocketConnection = function (socket) {
         var _this = this;
         var label = this.onNewConnection(socket) || uid();
@@ -13478,17 +13846,31 @@ var MultiPlayerServer = /** @class */ (function () {
         }); });
         socket.on("disconnect", function () {
             _this.socketConnections = _this.socketConnections.filter(function (s) {
-                _this.onDisconnect(s.socket);
                 return s.id != socket.id;
             });
+            _this.onDisconnect(socket);
         });
     };
+    /**
+     * Broadcasts data to all connected sockets
+     * @param data Data to broadcast
+     */
     MultiPlayerServer.prototype.broadcastData = function (data) {
         this.io.emit("data", data);
     };
+    /**
+     * Broadcasts an event to all connected sockets. "__key_down__", "__key_up__", "__player_data__", and "__player_initialized__" are reserved events.
+     * @param event Event to broadcast to all connected sockets
+     * @param data Data to broadcast to all connected sockets
+     */
     MultiPlayerServer.prototype.broadcastEvent = function (event, data) {
         this.io.emit(event, data);
     };
+    /**
+     * Emits data to a given socket
+     * @param socket Either socket.io socket, label of a connection, or a connection to emit data to
+     * @param data The data to emit
+     */
     MultiPlayerServer.prototype.emitData = function (socket, data) {
         switch (typeof socket) {
             case "string":
@@ -13511,6 +13893,12 @@ var MultiPlayerServer = /** @class */ (function () {
                 break;
         }
     };
+    /**
+     * Emits an event to a given socket. "__key_down__", "__key_up__", "__player_data__", and "__player_initialized__" are reserved events.
+     * @param socket Either socket.io socket, label of a connection, or a connection to emit an event to
+     * @param event Event to fire
+     * @param data Data to emit
+     */
     MultiPlayerServer.prototype.emitEvent = function (socket, event, data) {
         switch (typeof socket) {
             case "string":
@@ -13533,11 +13921,46 @@ var MultiPlayerServer = /** @class */ (function () {
                 break;
         }
     };
+    /**
+     * Listens for an event on the server
+     * @param event Event to listen for
+     * @param callback Callback function to call when the event is fired
+     */
     MultiPlayerServer.prototype.on = function (event, callback) {
         this.io.on(event, callback);
     };
     return MultiPlayerServer;
 }());
+/**
+ * @class PlayerClient
+ * @classdesc PlayerClient class, used for constructing, running, and managing a multiplayer client
+ * @property {any} socket - Socket.io socket of the client
+ * @property {any} io - Socket.io instance (used to generate socket)
+ * @property {boolean} ready - Whether or not the client is ready
+ * @property {Array<NotReadyStackEmitItem>} emitStack - Stack data to emitwhen the client is ready
+ * @property {Array<MultiPlayerClientInput>} inputStack - Stack of inputs to activate when the client is ready
+ * @property {HTMLCanvasElement} canvas - Canvas to draw the scene on
+ * @property {CanvasRenderingContext2D} ctx - CanvasRenderingContext2D of the canvas
+ * @property {number} width - Width of the scene
+ * @property {number} height - Height of the scene
+ * @property {Scene} scene - A Scene reference used to render the objects and lights sent by the server
+ * @property {Array<GameObject>} objects - Array of GameObjects in the scene
+ * @property {Function} modifyLocalObject - Function to modify the local player's GameObject
+ * @property {GameObject | null} localPlayer - Local player's GameObject
+ * @example
+ * ```js
+ * const playerClient = new ANVIL.PlayerClient({
+ *   canvas: document.getElementById('canvas'),
+ *   modifyLocalObject: function (obj) {
+ *      obj.backgroundColor = "blue";
+ *      this.scene.bindCamera(obj)
+ *  },
+ *  sceneOptions: {
+ *      fpsMonitoringEnabled: true
+ *  }
+ * });
+ * ```
+ */
 var PlayerClient = /** @class */ (function () {
     function PlayerClient(options) {
         var _this = this;
@@ -13557,12 +13980,17 @@ var PlayerClient = /** @class */ (function () {
         this.width = options.width || 500;
         this.height = options.height || 500;
         this.inputStack = [];
+        this.localPlayer = null;
         this.modifyLocalObject = options.modifyLocalObject || (function (gameObject) {
             gameObject.backgroundColor = "blue";
             _this.scene.bindCamera(gameObject);
         });
         this.modifyLocalObject.bind(this);
     }
+    /**
+     * Initializes the client after socket.io is loaded, empties the emitStack and inputStack, and sets the client to ready
+     * @param io Socket.io instance
+     */
     PlayerClient.prototype.init = function (io) {
         var _this = this;
         this.io = io;
@@ -13585,6 +14013,10 @@ var PlayerClient = /** @class */ (function () {
         this.scene.ready();
         this.setReady();
     };
+    /**
+     * Updates the client's local player
+     * @param data Sets the local player
+     */
     PlayerClient.prototype.updatePlayer = function (data) {
         if (this.localPlayer)
             return;
@@ -13596,6 +14028,12 @@ var PlayerClient = /** @class */ (function () {
         player.isLocalPlayer = true;
         this.localPlayer = player;
     };
+    /**
+     * Listens for an event, fires the given callback when the event is fired.
+     *
+     * @param event Event to listen to
+     * @param callback Callback to run when the event is fired
+     */
     PlayerClient.prototype.on = function (event, callback) {
         if (!this.ready) {
             this.emitStack.push({
@@ -13606,6 +14044,12 @@ var PlayerClient = /** @class */ (function () {
         }
         this.socket.on(event, callback);
     };
+    /**
+     * Emits an event to the server
+     *
+     * @param event Event to emit. "__key_down__", "__key_up__", "__player_data__", and "__player_initialized__" are reserved events.
+     * @param data Data to send to the server
+     */
     PlayerClient.prototype.emit = function (event, data) {
         if (!this.ready) {
             this.emitStack.push({
@@ -13616,6 +14060,10 @@ var PlayerClient = /** @class */ (function () {
         }
         this.socket.emit(event, data);
     };
+    /**
+     * Emits data to the server
+     * @param data Data to send to the server
+     */
     PlayerClient.prototype.emitData = function (data) {
         if (!this.ready) {
             this.emitStack.push({
@@ -13626,6 +14074,9 @@ var PlayerClient = /** @class */ (function () {
         }
         this.socket.emit("data", data);
     };
+    /**
+     * Empties the emitStack and inputStack, and sets the client to ready, starts the render loop
+     */
     PlayerClient.prototype.setReady = function () {
         var _this = this;
         this.ready = true;
@@ -13640,6 +14091,11 @@ var PlayerClient = /** @class */ (function () {
         });
         this.draw();
     };
+    /**
+     * Updates the scene with data from the server
+     *
+     * @param data Data to update the client with (Updates lights, objects, fog, ambient lighting, and directional lights)
+     */
     PlayerClient.prototype.update = function (data) {
         this.objects = data.objects.map(function (object) {
             var obj = GameObject.From(object);
@@ -13653,6 +14109,9 @@ var PlayerClient = /** @class */ (function () {
         this.scene.lightsPreFormatted = true;
         this.scene.lighting = data.lighting;
     };
+    /**
+     * Draws the scene on the canvas
+     */
     PlayerClient.prototype.draw = function () {
         var _this = this;
         this.objects.forEach(function (object) {
@@ -13682,7 +14141,20 @@ var ANVIL = {
     Input: Input,
     MultiPlayerClientInput: MultiPlayerClientInput,
     MultiPlayerInputHandler: MultiPlayerInputHandler,
-    ServerInputHandler: ServerInputHandler
+    ServerInputHandler: ServerInputHandler,
+    isConvex: isConvex,
+    instanceOfDirectionalLight: instanceOfDirectionalLight,
+    getCentroid: getCentroid,
+    calculateFPS: calculateFPS,
+    findTopLeftMostPoint: findTopLeftMostPoint,
+    isSquare: isSquare,
+    distance: distance,
+    getBoundingBox: getBoundingBox,
+    sumArrays: sumArrays,
+    multArrays: multArrays,
+    uid: uid,
+    checkSquareCollision: checkSquareCollision,
+    checkCollision: checkCollision,
 };
 if (typeof window != "undefined") {
     window.ANVIL = ANVIL;
