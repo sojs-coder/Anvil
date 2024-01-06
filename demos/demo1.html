@@ -20,6 +20,10 @@
     const lightingScene = new Scene({
       lighting: true,
       fpsMonitoringEnabled: true,
+      lightOptions: {
+        ambient: 0.0001,
+        fog: 2
+      }
     });
 
     // Create and add polygons
@@ -37,7 +41,7 @@
 
     // Create and add lights
     // 1 light at [50, 50] with radius 100, strength 0.8 and colored white, 1 at [250, 250] with radius 150, strength 0.6 and colored white
-    const light1 = new Light([50, 50], 100, 0.8, [255, 255, 255]);
+    const light1 = new Light([50, 50], 100, 5, [255, 255, 255]);
     const light2 = new Light([250, 250], 150, 0.6, [255, 255, 255]);
 
     lightingScene.addLight(light1);

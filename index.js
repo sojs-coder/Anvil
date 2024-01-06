@@ -25,6 +25,42 @@ var __assign = (this && this.__assign) || function () {
     };
     return __assign.apply(this, arguments);
 };
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
 var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
         if (ar || !(i in from)) {
@@ -448,6 +484,8 @@ function checkCollision(polygon, pointsArray) {
  * @property {boolean} convex - true if the object is convex, false otherwise
  * @property {any} [key: string] - any other properties that are added to the object
  * @property {GameObjectOptions} gameObjectOptions - Game object options of the game object (for serialization and recreation)
+ * @property {any} meta - Meta data of the object
+ * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -490,6 +528,8 @@ var GameObject = /** @class */ (function () {
         this.coordinates = options.coordinates || [0, 0];
         this.type = options.type || "gameObject";
         this.convex = options.convex || false; // assume the worst
+        this.meta = options.meta || {};
+        this.isLocalPlayer = false;
     }
     GameObject.From = function (options) {
         var object;
@@ -504,18 +544,19 @@ var GameObject = /** @class */ (function () {
                 object = new GameObject(options.gameObjectOptions);
                 break;
         }
-        object.physicsEnabled = options.physicsEnabled;
-        object.physicsOptions = options.physicsOptions;
-        object.bounds = options.bounds;
-        object.boundsActive = options.boundsActive;
+        object.physicsEnabled = options.physicsEnabled || false;
+        object.physicsOptions = options.physicsOptions || {};
+        object.bounds = options.bounds || [0, 0];
+        object.boundsActive = options.boundsActive || false;
         object._state = options._state;
-        object.square = options.square;
-        object.hitbox = options.hitbox;
-        object.points = options.points;
-        object.coordinates = options.coordinates;
-        object.type = options.type;
-        object.convex = options.convex;
-        object.gameObjectOptions = options.gameObjectOptions;
+        object.square = options.square || false;
+        object.hitbox = options.hitbox || [0, 0];
+        object.points = options.points || [[0, 0]];
+        object.coordinates = options.coordinates || [0, 0];
+        object.type = options.type || "gameObject";
+        object.convex = options.convex || false;
+        object.gameObjectOptions = options.gameObjectOptions || {};
+        object.meta = options.meta || {};
         return object;
     };
     /**
@@ -536,7 +577,8 @@ var GameObject = /** @class */ (function () {
             coordinates: this.coordinates,
             type: this.type,
             convex: this.convex,
-            gameObjectOptions: this.gameObjectOptions
+            gameObjectOptions: this.gameObjectOptions,
+            meta: this.meta
         };
     };
     /**
@@ -620,13 +662,22 @@ var GameObject = /** @class */ (function () {
     GameObject.prototype.polify = function () {
         return [];
     };
+    GameObject.prototype.drawLabel = function (options) {
+        if (options.ctx) {
+            options.ctx.font = "15px Arial";
+            options.ctx.fillStyle = this.backgroundColor || "black";
+            options.ctx.textAlign = "center";
+            options.ctx.fillText((this.meta) ? this.meta.label || "" : "", getCentroid(this.polify())[0] - options.camera[0], getCentroid(this.polify())[1] - (this.getHeight() / 2) - 15 - options.camera[1]);
+        }
+    };
     /**
      * Draws the object on the provided drawing context, in accordance with the camera position. This is handled automatically with scene and scene managers
      *
      * @param options The DrawOptions for the object
      */
     GameObject.prototype.draw = function (options) {
-        console.log("drawing base class");
+        if (this.meta && this.meta.showLabel)
+            this.drawLabel(options);
     };
     /**
      * Sets the object's bounds (where it can move)
@@ -808,7 +859,7 @@ var Polygon = /** @class */ (function (_super) {
      * @param options The DrawOptions for the object
      */
     Polygon.prototype.draw = function (options) {
-        console.log("drawing polygon");
+        _super.prototype.draw.call(this, options);
         var ctx = options.ctx, camera = options.camera;
         ctx.fillStyle = this.backgroundColor;
         ctx.beginPath();
@@ -967,6 +1018,7 @@ var Sprite = /** @class */ (function (_super) {
      * @param options The DrawOptions for the object
      */
     Sprite.prototype.draw = function (options) {
+        _super.prototype.draw.call(this, options);
         var ctx = options.ctx, camera = options.camera;
         if (!this.physicsEnabled) {
             ctx.drawImage(this.source, this.coordinates[0] - camera[0], this.coordinates[1] - camera[1], this.width, this.height);
@@ -1035,12 +1087,12 @@ var Sprite = /** @class */ (function (_super) {
  * @property {GameObject} pinnedTo - Object to pin the light's position to. Null by default.
  * @example
  * ```js
- * // light at position [0, 0], diffuse 0.5, strength 0.8, color [255, 255, 255] (white)
- * const light = new Light([0, 0], 0.5, 0.8, [255, 255, 255]);
+ * // light at position [0, 0], diffuse 100, strength 0.8, color [255, 255, 255] (white)
+ * const light = new Light([0, 0], 100, 0.8, [255, 255, 255]);
  * ```
  * @example
- * // light at position [0, 0], diffuse 0.5, defualt strength (0.8), defualt color (white)
- * const light = new Light([0, 0], 0.5);
+ * // light at position [0, 0], diffuse 150, defualt strength (0.8), defualt color (white)
+ * const light = new Light([0, 0], 150);
  */
 var Light = /** @class */ (function () {
     /**
@@ -1245,6 +1297,12 @@ var DirectionalLight = /** @class */ (function (_super) {
  * @property {GameObject | null} cameraBind - Object to bind the camera to
  * @property {number} FPS_BUFFER_SIZE - Size of the fps buffer
  * @property {boolean} isActiveScene - Whether or not the scene is the active scene
+ * @property {"full" | "plain"} drawMode - Draw mode of the scene. "full" is defualt and used when objects need to be updated as well. "plain" just draws objects (eg: when the scene is handled on the server)
+ * @property {Array<number>} formattedLights - Formatted lights for the diffuse kernel
+ * @property {Array<number>} formattedDLights - Formatted directional lights for the diffuse kernel
+ * @property {boolean} lightsPreFormatted - Whether or not the lights are pre-formatted
+ * @property {boolean} isClient - Whether or not the scene is running on the client
+ *
  * @example
  * ```js
  * const scene = new Scene({
@@ -1295,12 +1353,17 @@ var Scene = /** @class */ (function () {
         this.update = options.update || function () { };
         this.lights = [];
         this.dlights = [];
-        this.clearScene = options.clear || true;
+        this.formattedLights = [];
+        this.formattedDLights = [];
+        this.lightsPreFormatted = false;
+        this.clearScene = (options.clear == undefined) ? true : options.clear;
         this.bounds = options.bounds || [0, 0];
         this.boundsActive = (options.bounds) ? true : false;
         this.cameraBind = options.bindCameraTo || null;
         this.FPS_BUFFER_SIZE = options.FPS_BUFFER_SIZE || 60;
         this.isActiveScene = false;
+        this.isClient = (typeof document == "undefined") ? false : true;
+        this.GPUSettings = options.GPUsettings || {};
         if (this.lighting) {
             this.fog = (options.lightOptions) ? options.lightOptions.fog || 1.3 : 1.3;
             this.ambient = (options.lightOptions) ? options.lightOptions.ambient || 0.2 : 0.2;
@@ -1309,11 +1372,11 @@ var Scene = /** @class */ (function () {
             this.fog = 1.3;
             this.ambient = 0.2;
         }
-        if (typeof GPU == "function" && this.lighting) {
-            this.gpu = new GPU(options.GPUsettings || {});
+        if (typeof GPU == "function" && this.lighting && this.isClient) {
+            this.gpu = new GPU(this.GPUSettings);
         }
-        else if (this.lighting) {
-            this.gpu = new GPU.GPU(options.GPUsettings || {});
+        else if (this.lighting && this.isClient) {
+            this.gpu = new GPU.GPU(this.GPUSettings);
         }
         if (options.physics) {
             this.physics = true;
@@ -1336,7 +1399,11 @@ var Scene = /** @class */ (function () {
      * Initializes the scene, specifically the light rendering kernel
      */
     Scene.prototype.ready = function () {
-        if (this.lighting) {
+        this.configureLightingKernel();
+        this.readyToDraw = true;
+    };
+    Scene.prototype.configureLightingKernel = function () {
+        if (this.lighting && this.isClient) {
             this.diffuseKernel = this.gpu.createKernel(GPULightingKernel, {
                 output: [this.canvas.width, this.canvas.height],
                 functions: {
@@ -1348,7 +1415,6 @@ var Scene = /** @class */ (function () {
                 dynamicArguments: true
             });
         }
-        this.readyToDraw = true;
     };
     /**
      * Used to add lights to the scene
@@ -1364,28 +1430,32 @@ var Scene = /** @class */ (function () {
     };
     /**
      * Formats the lights into a format that the diffuseKernel can understand
+     * Updates the formattedLights array property
      *
      * @param lights List of lights in the scene
-     * @returns diffuseKernel-friendly light format
      */
-    Scene.prototype.formatLights = function (lights) {
-        var _this = this;
+    Scene.prototype.formatLights = function (lights, cameraAngle) {
+        if (!cameraAngle)
+            cameraAngle = this.cameraAngle;
         var flights = lights.map(function (l) {
-            return [l.point[0] - _this.cameraAngle[0], l.point[1] - _this.cameraAngle[1], l.strength, l.diffuse, l.color];
+            return [l.point[0] - cameraAngle[0], l.point[1] - cameraAngle[1], l.strength, l.diffuse, l.color];
         });
+        //this.formattedLights = flights.flat(2);
         return flights.flat(2);
     };
     /**
      * Formats the directional lights into a format that the diffuseKernel can understand
+     * Updates the formattedDLights property
      *
      * @param lights List of directional lights in the scene
-     * @returns diffuseKernel-friendly directional light format
      */
-    Scene.prototype.formatDLights = function (lights) {
-        var _this = this;
+    Scene.prototype.formatDLights = function (lights, cameraAngle) {
+        if (!cameraAngle)
+            cameraAngle = this.cameraAngle;
         var dlights = lights.map(function (l) {
-            return [l.angle, l.point[0] - _this.cameraAngle[0], l.point[1] - _this.cameraAngle[1], l.strength, l.diffuse, l.spread, l.color];
+            return [l.angle, l.point[0] - cameraAngle[0], l.point[1] - cameraAngle[1], l.strength, l.diffuse, l.spread, l.color];
         });
+        //this.formattedDLights = dlights.flat(2);
         return dlights.flat(2);
     };
     /**
@@ -1415,39 +1485,64 @@ var Scene = /** @class */ (function () {
         var _this = this;
         if (ambient === void 0) { ambient = 0.2; }
         if (fog === void 0) { fog = 1.3; }
-        this.lights.forEach(function (l) {
-            l.update(_this.canvas);
-        });
-        this.dlights.forEach(function (l) {
-            l.update(_this.canvas);
-        });
-        var lights = this.lights.filter(function (light) {
-            // only draw if within the camera view
-            var cameraX = _this.cameraAngle[0];
-            var cameraY = _this.cameraAngle[1];
-            var x = light.point[0];
-            var y = light.point[1];
-            var dx = x - cameraX;
-            var dy = y - cameraY;
-            var sceneWidth = _this.canvas.width;
-            var sceneHeight = _this.canvas.height;
-            var diffuseFactor = light.diffuse;
-            var isBoundedLeft = dx + diffuseFactor > 0;
-            var isBoundedRight = dx - diffuseFactor < sceneWidth;
-            var isBoundedTop = dy + diffuseFactor > 0;
-            var isBoundedBottom = dy - diffuseFactor < sceneHeight;
-            // take in a account the diffuse factor
-            var isInBounds = isBoundedLeft && isBoundedRight && isBoundedTop && isBoundedBottom;
-            return isInBounds;
-        });
+        var lights = Array.from(this.lights);
+        var dlights = Array.from(this.dlights);
+        if (!this.lightsPreFormatted) {
+            this.lights.forEach(function (l) {
+                l.update(_this.canvas);
+            });
+            this.dlights.forEach(function (l) {
+                l.update(_this.canvas);
+            });
+        }
+        if (this.lightsPreFormatted) {
+            // generate lights from formatted lights
+            var formattedLights = this.formattedLights;
+            var formattedDLights = this.formattedDLights;
+            var numLights = this.formattedLights.length / 7;
+            var numDLights = this.formattedDLights.length / 9;
+            var lightIndex = 0;
+            var dlightIndex = 0;
+            for (var i = 0; i < numLights; i++) {
+                var light = new Light([formattedLights[lightIndex], formattedLights[lightIndex + 1]], formattedLights[lightIndex + 3], formattedLights[lightIndex + 2], [formattedLights[lightIndex + 4], formattedLights[lightIndex + 5], formattedLights[lightIndex + 6]]);
+                lightIndex += 7;
+                lights.push(light);
+            }
+            for (var i = 0; i < numDLights; i++) {
+                var dlight = new DirectionalLight([formattedDLights[dlightIndex + 1], formattedDLights[dlightIndex + 2]], formattedDLights[dlightIndex], formattedDLights[dlightIndex + 5], formattedDLights[dlightIndex + 4], formattedDLights[dlightIndex + 3], [formattedDLights[dlightIndex + 6], formattedDLights[dlightIndex + 7], formattedDLights[dlightIndex + 8]]);
+                dlightIndex += 9;
+                dlights.push(dlight);
+            }
+        }
+        // lights = this.lights.filter((light) => {
+        //     // only draw if within the camera view
+        //     var cameraX = this.cameraAngle[0];
+        //     var cameraY = this.cameraAngle[1];
+        //     var x = light.point[0];
+        //     var y = light.point[1];
+        //     var dx = x - cameraX;
+        //     var dy = y - cameraY;
+        //     var sceneWidth = this.canvas.width;
+        //     var sceneHeight = this.canvas.height;
+        //     var diffuseFactor = light.diffuse;
+        //     var isBoundedLeft = dx + diffuseFactor > 0;
+        //     var isBoundedRight = dx - diffuseFactor < sceneWidth;
+        //     var isBoundedTop = dy + diffuseFactor > 0;
+        //     var isBoundedBottom = dy - diffuseFactor < sceneHeight;
+        //     // take in a account the diffuse factor
+        //     var isInBounds = isBoundedLeft && isBoundedRight && isBoundedTop && isBoundedBottom;
+        //     return isInBounds;
+        // });
         var dlights = this.dlights;
         var width = this.canvas.width;
         var height = this.canvas.height;
         var numLights = lights.length;
         var numDLights = dlights.length;
         var pix = this.ctx.getImageData(0, 0, width, height).data;
-        var flights = this.formatLights(lights);
-        var dflights = this.formatDLights(dlights);
+        var flights = this.formatLights(lights, this.cameraAngle);
+        var dflights = this.formatDLights(dlights, this.cameraAngle);
+        // var flights = Array.from(this.formattedLights);
+        // var dflights = Array.from(this.formattedDLights);
         // Run the GPU kernel
         if (flights.length <= 0) {
             flights = [0, 0, 0, 0, 0, 0, 0];
@@ -1534,8 +1629,22 @@ var Scene = /** @class */ (function () {
     Scene.prototype.clear = function () {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     };
+    Scene.prototype.check = function () {
+        if (this.lighting && this.isClient && !this.gpu) {
+            if (typeof GPU == "function" && this.lighting && this.isClient) {
+                this.gpu = new GPU(this.GPUSettings || {});
+            }
+            else if (this.lighting && this.isClient) {
+                this.gpu = new GPU.GPU(this.GPUSettings || {});
+            }
+        }
+        if (this.lighting && this.isClient && !this.diffuseKernel) {
+            this.configureLightingKernel();
+        }
+    };
     Scene.prototype.plainDraw = function () {
         var _this = this;
+        this.check();
         if (!this.readyToDraw)
             return;
         this.ctx.fillStyle = "white";
@@ -1546,7 +1655,7 @@ var Scene = /** @class */ (function () {
         this.objects.forEach(function (object) {
             object.draw({ ctx: _this.ctx, camera: _this.cameraAngle, canvas: _this.canvas });
         });
-        if (this.lighting) {
+        if (this.lighting && this.isClient) {
             this.diffuseLights(this.ambient, this.fog);
         }
         var t1 = performance.now();
@@ -1559,8 +1668,18 @@ var Scene = /** @class */ (function () {
             }
             this.ctx.font = "20px Ariel";
             this.ctx.fillStyle = "black";
+            this.ctx.textAlign = "left";
             this.ctx.fillText("FPS: " + calculateFPS(this.fpsBuffer), 5, 20);
         }
+    };
+    Scene.prototype.updateLights = function () {
+        var _this = this;
+        this.lights.forEach(function (l) {
+            l.update(_this.canvas);
+        });
+        this.dlights.forEach(function (l) {
+            l.update(_this.canvas);
+        });
     };
     /**
      * Draws all of the objects, lights, and directional lights in the scene.
@@ -1569,6 +1688,7 @@ var Scene = /** @class */ (function () {
      */
     Scene.prototype.draw = function () {
         var _this = this;
+        this.check();
         if (!this.readyToDraw)
             return;
         this.ctx.fillStyle = "black";
@@ -1611,7 +1731,7 @@ var Scene = /** @class */ (function () {
             }
             return [o1, o2, f, f2, active];
         });
-        if (this.lighting) {
+        if (this.lighting && this.isClient) {
             this.diffuseLights(this.ambient, this.fog);
         }
         var t1 = performance.now();
@@ -1667,6 +1787,7 @@ var Scene = /** @class */ (function () {
             }
             return [o1, o2, f, f2, active];
         });
+        this.updateLights();
     };
     /**
      * Removes a GameObject from the scene
@@ -1796,13 +1917,14 @@ var SceneManager = /** @class */ (function () {
         this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
         this.canvas.width = this.width;
         this.canvas.height = this.height;
+        this.start = (options.start == undefined) ? true : options.start;
         this.scenes[initialScene.id].width = this.width;
         this.scenes[initialScene.id].height = this.height;
         this.scenes[initialScene.id].canvas = this.canvas;
         this.scenes[initialScene.id].ctx = this.ctx;
         this.scenes[initialScene.id].setDrawingCapabilities(this.canvas, this.ctx, this.width, this.height);
         this.scenes[initialScene.id].ready();
-        if (options.start) {
+        if (this.start) {
             this.draw();
         }
         this.animationNames = ["quickFade", "slowFade", "slideLeft", "crossFade"];
@@ -2005,18 +2127,18 @@ var Input = /** @class */ (function () {
      * Activates the input monitor
      * @param scene Scene to activate the input on (Only matters if the input is a click monitor)
      */
-    Input.prototype.activate = function (scene) {
+    Input.prototype.activate = function (activateOn) {
         var _this = this;
         this.active = true;
-        if (this.clickMonitor) {
+        if (activateOn && this.clickMonitor && activateOn instanceof Scene) {
             document.addEventListener("mousedown", function (event) {
-                if (!scene.isActiveScene)
+                if (!activateOn.isActiveScene)
                     return;
-                var rect = scene.canvas.getBoundingClientRect();
+                var rect = activateOn.canvas.getBoundingClientRect();
                 var x = event.clientX - rect.left;
                 var y = event.clientY - rect.top;
-                scene.objects.forEach(function (object) {
-                    var r = sumArrays([x, y], scene.cameraAngle);
+                activateOn.objects.forEach(function (object) {
+                    var r = sumArrays([x, y], activateOn.cameraAngle);
                     if (checkCollision(object.polify(), [r])) {
                         _this.on(object);
                         document.addEventListener("mouseup", function (event) {
@@ -2058,6 +2180,103 @@ var Input = /** @class */ (function () {
     };
     return Input;
 }());
+var MultiPlayerClientInput = /** @class */ (function () {
+    function MultiPlayerClientInput(key, playerClient) {
+        this.key = key;
+        this.down = false;
+        if (playerClient.ready) {
+            this.sleeping = false;
+            this.activate(playerClient);
+        }
+        else {
+            this.socket = null;
+            this.sleeping = true;
+            playerClient.inputStack.push(this);
+        }
+    }
+    MultiPlayerClientInput.prototype.activate = function (playerClient) {
+        var _this = this;
+        this.socket = playerClient.socket;
+        document.addEventListener("keydown", function (e) {
+            if (e.key == _this.key && !_this.down) {
+                _this.down = true;
+                _this.socket.emit("__key_down__", _this.key);
+            }
+        });
+        document.addEventListener("keyup", function (e) {
+            if (e.key == _this.key && _this.down) {
+                _this.down = false;
+                _this.socket.emit("__key_up__", _this.key);
+            }
+        });
+        MultiPlayerClientInput.activeInputs.push(this);
+    };
+    MultiPlayerClientInput.activeInputs = [];
+    return MultiPlayerClientInput;
+}());
+var MultiPlayerInputHandler = /** @class */ (function () {
+    function MultiPlayerInputHandler(options) {
+        this.monitors = options.monitors;
+    }
+    return MultiPlayerInputHandler;
+}());
+var ServerInputHandler = /** @class */ (function () {
+    function ServerInputHandler(options) {
+        var _this = this;
+        this.key = options.key;
+        this.fireRate = options.fireRate || 10;
+        this.id = uid();
+        this.fireIntervals = {};
+        this.firing = {};
+        this.active = false;
+        this.sceneManager = null;
+        this.on = function (socket, playerObject) {
+            if (_this.active) {
+                options.on(socket, playerObject);
+            }
+        };
+    }
+    ServerInputHandler.prototype.init = function (sceneManager) {
+        this.sceneManager = sceneManager;
+        this.active = true;
+    };
+    ServerInputHandler.prototype.activateOn = function (socket) {
+        var _this = this;
+        socket.on("__key_down__", function (key) {
+            if (key == _this.key) {
+                _this.startFiring(socket);
+            }
+        });
+        socket.on("__key_up__", function (key) {
+            if (key == _this.key) {
+                _this.stopFiring(socket);
+            }
+        });
+    };
+    ServerInputHandler.prototype.startFiring = function (socket) {
+        var _this = this;
+        if (!this.firing[socket.id]) {
+            this.firing[socket.id] = true;
+            // find the player object based on socket.id, scanning for matching ID in the scene manager
+            var playerGameObject = this.sceneManager.players.filter(function (player) {
+                return player.id == socket.id;
+            })[0].gameObject;
+            this.on(socket, playerGameObject);
+            this.fireIntervals[socket.id] = setInterval(function () {
+                if (_this.firing[socket.id]) {
+                    _this.on(socket, playerGameObject);
+                }
+            }, this.fireRate);
+        }
+    };
+    ServerInputHandler.prototype.stopFiring = function (socket) {
+        if (this.firing[socket.id]) {
+            this.firing[socket.id] = false;
+            clearInterval(this.fireIntervals[socket.id]);
+        }
+    };
+    return ServerInputHandler;
+}());
 var Player = /** @class */ (function () {
     function Player(options) {
         this.id = options.id;
@@ -2067,7 +2286,8 @@ var Player = /** @class */ (function () {
         this.gameObject.meta = {
             player: true,
             id: this.id,
-            label: this.label
+            label: this.label,
+            showLabel: options.showLabel || false
         };
         this.inSceneID = null;
     }
@@ -2085,10 +2305,12 @@ var MultiPlayerSceneManager = /** @class */ (function (_super) {
     function MultiPlayerSceneManager(options) {
         var _this = _super.call(this, __assign(__assign({}, options), { canvas: createCanvas(options.width || 500, options.height || 500), width: options.width || 500, height: options.height || 500, start: false })) || this;
         _this.players = [];
+        _this.showPlayerLabels = options.showPlayerLabels || false;
         _this.draw();
         return _this;
     }
     MultiPlayerSceneManager.prototype.addPlayer = function (player) {
+        player.gameObject.meta.showLabel = this.showPlayerLabels;
         this.players.push(player);
     };
     MultiPlayerSceneManager.prototype.removePlayer = function (player) {
@@ -2130,6 +2352,15 @@ var MultiPlayerServer = /** @class */ (function () {
         this.sceneManager = multiPlayerServerOptions.sceneManager;
         this.tickSpeed = multiPlayerServerOptions.tickSpeed || 1000 / 60;
         this.newPlayerObject = multiPlayerServerOptions.newPlayerObject || new GameObject();
+        this.onNewPlayer = multiPlayerServerOptions.onNewPlayer || (function (socket, id) {
+            return [new _this.newPlayerObject.class(_this.newPlayerObject.options), id];
+        });
+        this.inputHandler = multiPlayerServerOptions.inputHandler || new MultiPlayerInputHandler({
+            monitors: []
+        });
+        this.inputHandler.monitors.forEach(function (monitor) {
+            monitor.init(_this.sceneManager);
+        });
         multiPlayerServerOptions.httpServer.listen(multiPlayerServerOptions.port, function () {
             _this.tick();
             (multiPlayerServerOptions.serverLive) ? multiPlayerServerOptions.serverLive() : (function () { })();
@@ -2137,24 +2368,25 @@ var MultiPlayerServer = /** @class */ (function () {
     }
     MultiPlayerServer.prototype.tick = function () {
         var _this = this;
-        // this.sceneManager.players.forEach(player => {
-        //     player.emit();
-        // });
+        this.sceneManager.players.forEach(function (player) {
+            player.emit();
+        });
         this.sceneManager.draw();
         this.socketConnections.forEach(function (connection) {
-            // get the associated player
             var player = _this.sceneManager.getPlayer(connection.id);
             if (!player)
                 return;
-            // get the scene that the player is in
             var scene = _this.sceneManager.scenes[player.inSceneID];
-            // get the objects in the scene
             var objects = scene.objects;
-            // emit the objects to the player
             _this.emitData(connection, {
                 objects: objects.map(function (object) {
                     return object.serialize();
-                })
+                }),
+                lights: scene.formatLights(scene.lights, [0, 0]),
+                dlights: scene.formatDLights(scene.dlights, [0, 0]),
+                ambient: scene.ambient,
+                fog: scene.fog,
+                lighting: scene.lighting
             });
         });
         setTimeout(function () {
@@ -2169,17 +2401,49 @@ var MultiPlayerServer = /** @class */ (function () {
             id: socket.id,
             label: label
         });
-        socket.on("__player_initialized__", function (data) {
-            console.log("player initialized");
-            var player = new Player({
-                id: socket.id,
-                label: label,
-                socket: socket,
-                playerGameObject: new _this.newPlayerObject.class(_this.newPlayerObject.options)
+        socket.on("__player_initialized__", function (data) { return __awaiter(_this, void 0, void 0, function () {
+            var res, playerObject, label, player, playerObject, label, player;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        res = this.onNewPlayer(socket, socket.id, data);
+                        if (!(res instanceof Promise)) return [3 /*break*/, 2];
+                        return [4 /*yield*/, res];
+                    case 1:
+                        res = _a.sent();
+                        playerObject = res[0];
+                        label = res[1];
+                        player = new Player({
+                            id: socket.id,
+                            label: label,
+                            socket: socket,
+                            playerGameObject: playerObject
+                        });
+                        this.sceneManager.addPlayer(player);
+                        player.enterScene(this.sceneManager.scenes[this.sceneManager.activeScene]);
+                        return [3 /*break*/, 3];
+                    case 2:
+                        if (res instanceof Array) {
+                            playerObject = res[0];
+                            label = res[1];
+                            player = new Player({
+                                id: socket.id,
+                                label: label,
+                                socket: socket,
+                                playerGameObject: playerObject
+                            });
+                            this.sceneManager.addPlayer(player);
+                            player.enterScene(this.sceneManager.scenes[this.sceneManager.activeScene]);
+                        }
+                        _a.label = 3;
+                    case 3:
+                        this.inputHandler.monitors.forEach(function (monitor) {
+                            monitor.activateOn(socket);
+                        });
+                        return [2 /*return*/];
+                }
             });
-            _this.sceneManager.addPlayer(player);
-            player.enterScene(_this.sceneManager.scenes[_this.sceneManager.activeScene]);
-        });
+        }); });
         socket.on("disconnect", function () {
             _this.socketConnections = _this.socketConnections.filter(function (s) {
                 _this.onDisconnect(s.socket);
@@ -2237,6 +2501,9 @@ var MultiPlayerServer = /** @class */ (function () {
                 break;
         }
     };
+    MultiPlayerServer.prototype.on = function (event, callback) {
+        this.io.on(event, callback);
+    };
     return MultiPlayerServer;
 }());
 var PlayerClient = /** @class */ (function () {
@@ -2250,22 +2517,27 @@ var PlayerClient = /** @class */ (function () {
             _this.init(window.io);
         });
         this.ready = false;
-        this.stack = [];
+        this.emitStack = [];
         this.canvas = options.canvas;
         this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
-        this.scene = new Scene({
-            lighting: false
-        });
+        this.scene = new Scene(options.sceneOptions || {});
         this.objects = [];
         this.width = options.width || 500;
         this.height = options.height || 500;
+        this.inputStack = [];
+        this.modifyLocalObject = options.modifyLocalObject || (function (gameObject) {
+            gameObject.backgroundColor = "blue";
+            _this.scene.bindCamera(gameObject);
+        });
+        this.modifyLocalObject.bind(this);
     }
     PlayerClient.prototype.init = function (io) {
         var _this = this;
         this.io = io;
         this.socket = this.io();
         this.socket.emit("__player_initialized__", {
-            timestamp: new Date().getTime()
+            timestamp: new Date().getTime(),
+            cookies: document.cookie
         });
         window.ANVIL.multiplayer = {
             socket: this.socket,
@@ -2274,13 +2546,27 @@ var PlayerClient = /** @class */ (function () {
         this.on("data", function (data) {
             _this.update(data);
         });
+        this.on("__player_data__", function (data) {
+            _this.updatePlayer(data);
+        });
         this.scene.setDrawingCapabilities(this.canvas, this.ctx, this.width, this.height, "plain");
         this.scene.ready();
         this.setReady();
     };
+    PlayerClient.prototype.updatePlayer = function (data) {
+        if (this.localPlayer)
+            return;
+        var player = this.objects.filter(function (object) {
+            return object.meta.player && object.meta.id == data.meta.id;
+        })[0];
+        if (!player)
+            return;
+        player.isLocalPlayer = true;
+        this.localPlayer = player;
+    };
     PlayerClient.prototype.on = function (event, callback) {
         if (!this.ready) {
-            this.stack.push({
+            this.emitStack.push({
                 type: "on",
                 args: [event, callback]
             });
@@ -2290,7 +2576,7 @@ var PlayerClient = /** @class */ (function () {
     };
     PlayerClient.prototype.emit = function (event, data) {
         if (!this.ready) {
-            this.stack.push({
+            this.emitStack.push({
                 type: "emit",
                 args: [event, data]
             });
@@ -2300,7 +2586,7 @@ var PlayerClient = /** @class */ (function () {
     };
     PlayerClient.prototype.emitData = function (data) {
         if (!this.ready) {
-            this.stack.push({
+            this.emitStack.push({
                 type: "emitData",
                 args: [data]
             });
@@ -2311,8 +2597,11 @@ var PlayerClient = /** @class */ (function () {
     PlayerClient.prototype.setReady = function () {
         var _this = this;
         this.ready = true;
-        this.stack.forEach(function (item) {
+        this.emitStack.forEach(function (item) {
             _this[item.type].apply(_this, item.args);
+        });
+        this.inputStack.forEach(function (input) {
+            input.activate(_this);
         });
         this.on("data", function (data) {
             _this.update(data);
@@ -2325,9 +2614,20 @@ var PlayerClient = /** @class */ (function () {
             return obj;
         });
         this.scene.objects = this.objects;
+        this.scene.formattedLights = data.lights;
+        this.scene.formattedDLights = data.dlights;
+        this.scene.fog = data.fog;
+        this.scene.ambient = data.ambient;
+        this.scene.lightsPreFormatted = true;
+        this.scene.lighting = data.lighting;
     };
     PlayerClient.prototype.draw = function () {
         var _this = this;
+        this.objects.forEach(function (object) {
+            if (_this.localPlayer && object.meta.id == _this.socket.id && _this.localPlayer.meta.id == _this.socket.id && _this.localPlayer.meta.id == object.meta.id) {
+                _this.modifyLocalObject(object);
+            }
+        });
         this.scene.plainDraw();
         window.requestAnimationFrame(function () {
             _this.draw();
@@ -2347,7 +2647,10 @@ var ANVIL = {
     Player: Player,
     MultiPlayerServer: MultiPlayerServer,
     PlayerClient: PlayerClient,
-    Input: Input
+    Input: Input,
+    MultiPlayerClientInput: MultiPlayerClientInput,
+    MultiPlayerInputHandler: MultiPlayerInputHandler,
+    ServerInputHandler: ServerInputHandler
 };
 if (typeof window != "undefined") {
     window.ANVIL = ANVIL;

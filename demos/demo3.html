@@ -31,13 +31,8 @@
 
 
     const clickInput = new Input("click", noPhysicsLightCanvas);
-    clickInput.on = (event) => {
-      console.log(event)
-      const polygon = new Polygon({
-        points: [[event.clientX, event.clientY], [event.clientX + 50, event.clientY], [event.clientX + 50, event.clientY + 50], [event.clientX, event.clientY + 50]],
-        backgroundColor: "#000000",
-      });
-      noPhysicsLightScene.addObject(polygon);
+    clickInput.on = (obj) => {
+      obj.state("backgroundColor", "#0000FF")
     };
     clickInput.activate(noPhysicsLightScene);
     noPhysicsLightScene.addObject(polygon1);
