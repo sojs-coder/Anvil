@@ -4,11 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anvil.js No Physics and No Light Demo</title>
-  <script src="../dist/anvil.min.js"></script>
+  <script src="../build/anvil.js"></script>
 </head>
 <body>
   <canvas id="noPhysicsLightCanvas" width="800" height="600"></canvas>
   <script>
+    const { Scene, Polygon, Input, SceneManager } = ANVIL;
     const noPhysicsLightCanvas = document.getElementById("noPhysicsLightCanvas");
     const noPhysicsLightScene = new Scene({
       width: 800,
@@ -28,8 +29,19 @@
       backgroundColor: "#00FF00",
     });
 
+
+    const clickInput = new Input("click", noPhysicsLightCanvas);
+    clickInput.on = (obj) => {
+      obj.state("backgroundColor", "#0000FF")
+    };
+    clickInput.activate(noPhysicsLightScene);
     noPhysicsLightScene.addObject(polygon1);
     noPhysicsLightScene.addObject(polygon2);
+
+    const sceneManager = new SceneManager({
+      initialScene: noPhysicsLightScene,
+      canvas: noPhysicsLightCanvas,
+    });
   </script>
 </body>
 </html>

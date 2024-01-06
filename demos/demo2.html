@@ -4,16 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anvil.js Physics Demo</title>
-  <script src="../dist/anvil.min.js"></script>
+  <script src="../build/anvil.js"></script>
 </head>
 <body>
   <canvas id="physicsCanvas" width="800" height="600"></canvas>
   <script>
+    const { Scene, Polygon, Input, SceneManager } = ANVIL;
     const physicsCanvas = document.getElementById("physicsCanvas");
     const physicsScene = new Scene({
-      width: 800,
-      height: 600,
-      canvas: physicsCanvas,
       physics: true,
       fpsMonitoringEnabled: true,
       start: true,
@@ -68,6 +66,11 @@
 
     moveLeft.activate();
     moveRight.activate();
+
+    const sceneManager = new SceneManager({
+      initialScene: physicsScene,
+      canvas: physicsCanvas
+    })
   </script>
 </body>
 </html>
