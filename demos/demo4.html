@@ -24,7 +24,7 @@
                 lighting: true, 
                 physics: true,
                 lightOptions: {
-                    ambient: 0.8
+                    ambient: 0.001
                 },
                 physicsOptions: {scale: 0}
             });
@@ -52,13 +52,13 @@
             }
             moveDown.activate();
 
-            for(var i = 0; i < 1; i++){
+            for(var i = 0; i < 100; i++){
                 const box = new Polygon({
                     points: [[0,0],[0,50],[50,50],[50,0]],
                     backgroundColor: "blue",
                     blocks: [player]
                 });
-                box.move([Math.random() * 100, Math.random() * 100]);
+                box.move([Math.random() * 1000, Math.random() * 1000]);
                 myScene.addObject(box);
             }
 

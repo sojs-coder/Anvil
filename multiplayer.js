@@ -1,6 +1,8 @@
 var { MultiPlayerServer, MultiPlayerSceneManager, MultiPlayerInputHandler, MultiPlayerSceneManager, Scene, Polygon, ServerInputHandler, Light } = require("./index.js");
 const http = require('http');
 const express = require("express");
+
+
 const app = express();
 app.use(express.static('build'));
 app.use(express.static('multiplayer/public'));
