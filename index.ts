@@ -266,6 +266,7 @@ interface SceneOptions {
     bounds?: Vec2; // set the bounds of the scene, by default bounds are not enabled
     FPS_BUFFER_SIZE?: number; // size of the buffer used to calculate FPS, default is 60
     bindCameraTo?: GameObject; // bind the camera to a GameObject, by default camera is static
+    layers?: Array<Layer>; // layers in the scene
 }
 
 // Configuring lights in a scene
@@ -1169,7 +1170,7 @@ class GameObject {
         this.isLocalPlayer = false;
         this.blocks = options.blocks || [];
         this.blockedBy = [];
-        this.blocks.forEach((object: GameObject)=> {
+        this.blocks.forEach((object: GameObject) => {
             object.blockedBy.push(this);
         })
 
@@ -1641,7 +1642,7 @@ class Polygon extends GameObject {
      */
     move(vector: Vec2): Boolean {
         var moved: Boolean = super.move(vector);
-        if(!moved) return false;
+        if (!moved) return false;
         var newPoints: Point[] = [];
         for (var point of this.points) {
             var newCoords = <Vec2>sumArrays(point, vector);
@@ -2020,7 +2021,110 @@ class DirectionalLight extends Light {
     }
 }
 
+interface LayerOptions {
+    physics: boolean;
+    physicsOptions: any;
+    objects: Array<GameObject>;
+    boundsActive: boolean;
+    bounds: Array<number>;
+    parallax: Vec2;
+}
+class Layer {
+    objects: Array<GameObject>;
+    physics: boolean;
+    id: String;
+    Engine: any;
+    Bodies: any;
+    Composite: any;
+    engine: any;
+    boundsActive: boolean;
+    bounds: Array<number>;
+    parallax: Vec2;
+    lastPhysicsUpdate: number;
 
+    constructor(options: LayerOptions) {
+        this.objects = options.objects;
+        this.physics = options.physics;
+        this.boundsActive = options.boundsActive || false;
+        this.bounds = options.bounds || [0, 0];
+        this.id = uid();
+        this.parallax = options.parallax || [1, 1];
+        if (options.physics) {
+            this.physics = true;
+            this.Engine = Matter.Engine
+            this.Bodies = Matter.Bodies
+            this.Composite = Matter.Composite;
+            this.engine = Matter.Engine.create(options.physicsOptions);
+            this.lastPhysicsUpdate = performance.now();
+        } else {
+            this.physics = false;
+            this.Engine = null;
+            this.Bodies = null;
+            this.Composite = null;
+            this.engine = null;
+            this.lastPhysicsUpdate = 0;
+        }
+    }
+    addObject(object: GameObject, scene: Scene): void {
+        object.scene = scene.id;
+        object.layerID = this.id;
+        object.physicsEnabled = (this.physics) ? object.physicsEnabled : false;
+        if (object.physicsEnabled && this.physics) {
+            if (!object.square) {
+                var vertexSet = object.polify().map(point => {
+                    return { x: point[0], y: point[1] }
+                })
+                var objectBody = this.Bodies.fromVertices(object.coordinates[0], object.coordinates[1], vertexSet, object.physicsOptions);
+                object.body = objectBody;
+            } else {
+                var objectBody = this.Bodies.rectangle(object.coordinates[0], object.coordinates[1], object.getWidth(), object.getHeight(), object.physicsOptions);
+                object.body = objectBody
+            }
+            this.Composite.add(this.engine.world, [object.body]);
+        }
+        this.objects.push(object);
+    }
+    removeObject(object: GameObject) {
+        this.objects = this.objects.filter(obj => obj != object);
+    }
+    draw(options: DrawOptions) {
+        for (var object of this.objects) {
+            options.camera = multArrays(options.camera, this.parallax) as Vec2;
+            object.draw({
+                ctx: options.ctx,
+                camera: options.camera,
+                canvas: options.canvas
+            });
+        }
+    }
+    setBoundaries(rightBound: number, bottomBound: number, canvas: HTMLCanvasElement, activate: boolean = true): void {
+        this.bounds = [rightBound || canvas.width, bottomBound || canvas.height];
+        this.objects.forEach(object => {
+            object.setBounds(this.bounds);
+        });
+        this.boundsActive = activate;
+        if (this.physics) {
+            var topBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, -10, this.bounds[0], 10, { isStatic: true, friction: 0 });
+            var bottomBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, this.bounds[1] + 10, this.bounds[0], 10, { isStatic: true, friction: 0 });
+            var leftBoundObj = this.Bodies.rectangle(-10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
+            var rightBoundObj = this.Bodies.rectangle(this.bounds[0] + 10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
+            this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
+        }
+    }
+    disableBounds(): void {
+        this.boundsActive = false;
+        this.objects.forEach(object => {
+            object.disableBounds();
+        })
+    }
+    activateBounds(): void {
+        this.boundsActive = true;
+        this.objects.forEach(object => {
+            object.activateBounds();
+        })
+    }
+
+}
 /**
  * @class Scene
  * @classdesc Scene class, used for building scenes
@@ -2042,11 +2146,6 @@ class DirectionalLight extends Light {
  * @property {number} fog - Fog of the scene
  * @property {number} ambient - Ambient of the scene
  * @property {boolean} clearScene - Whether or not to clear the scene
- * @property {boolean} physics - Whether or not physics is enabled
- * @property {any} Engine - Matter.js Engine
- * @property {any} Bodies - Matter.js Bodies
- * @property {any} Composite - Matter.js Composite
- * @property {any} engine - Matter.js engine instance
  * @property {HTMLCanvasElement} canvas - Canvas of the scene
  * @property {CanvasRenderingContext2D} ctx - Canvas rendering context of the scene
  * @property {number} width - Width of the scene
@@ -2113,11 +2212,6 @@ class Scene {
     fog: number;
     ambient: number;
     clearScene: boolean;
-    physics: boolean;
-    Engine: any;
-    Bodies: any;
-    Composite: any;
-    engine: any;
     canvas!: HTMLCanvasElement;
     ctx!: CanvasRenderingContext2D;
     width!: number;
@@ -2133,6 +2227,7 @@ class Scene {
     lightsPreFormatted: boolean;
     isClient: boolean;
     GPUSettings: Object;
+    layers: Array<Layer>;
     /**
      * 
      * @param options SceneOptions object passed to initialize the scene
@@ -2161,6 +2256,20 @@ class Scene {
         this.isActiveScene = false;
         this.isClient = (typeof document == "undefined") ? false : true;
         this.GPUSettings = options.GPUsettings || {};
+        this.layers = options.layers || [];
+        if (this.layers.length == 0) {
+            // todo: set defualt layer [TAG: defualtLayer]
+            var layer1 = new Layer({
+                physics: options.physics || false,
+                physicsOptions: options.physicsOptions || {},
+                objects: [],
+                boundsActive: this.boundsActive,
+                bounds: this.bounds,
+                parallax: [1, 1]
+            });
+            this.layers.push(layer1);
+            // layers are linear... first layer is layer 0, second is layer 1, etc.
+        }
         if (this.lighting) {
             this.fog = (options.lightOptions) ? options.lightOptions.fog || 1.3 : 1.3;
             this.ambient = (options.lightOptions) ? options.lightOptions.ambient || 0.2 : 0.2;
@@ -2172,19 +2281,6 @@ class Scene {
             this.gpu = new GPU(this.GPUSettings);
         } else if (this.lighting && this.isClient) {
             this.gpu = new GPU.GPU(this.GPUSettings)
-        }
-        if (options.physics) {
-            this.physics = true;
-            this.Engine = Matter.Engine
-            this.Bodies = Matter.Bodies
-            this.Composite = Matter.Composite;
-            this.engine = Matter.Engine.create(options.physicsOptions);
-        } else {
-            this.physics = false;
-            this.Engine = null;
-            this.Bodies = null;
-            this.Composite = null;
-            this.engine = null;
         }
         this.readyToDraw = false;
         this.drawMode = "full";
@@ -2345,8 +2441,6 @@ class Scene {
         const pix = this.ctx.getImageData(0, 0, width, height).data;
         var flights = this.formatLights(<Array<Light>>lights, this.cameraAngle);
         var dflights = this.formatDLights(<Array<DirectionalLight>>dlights, this.cameraAngle);
-        // var flights = Array.from(this.formattedLights);
-        // var dflights = Array.from(this.formattedDLights);
         // Run the GPU kernel
 
         if (flights.length <= 0) {
@@ -2372,36 +2466,26 @@ class Scene {
      * @param activate Boolean, if true, bounds will be active by defualt, if false, bounds will be inactive by default
      */
     setBoundaries(rightBound: number, bottomBound: number, activate: boolean = true): void {
-        this.bounds = [rightBound || this.canvas.width, bottomBound || this.canvas.height];
-        this.objects.forEach(object => {
-            object.setBounds(this.bounds);
-        });
-        this.boundsActive = activate;
-        if (this.physics) {
-            var topBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, -10, this.bounds[0], 10, { isStatic: true, friction: 0 });
-            var bottomBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, this.bounds[1] + 10, this.bounds[0], 10, { isStatic: true, friction: 0 });
-            var leftBoundObj = this.Bodies.rectangle(-10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
-            var rightBoundObj = this.Bodies.rectangle(this.bounds[0] + 10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
-            this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
-        }
+        this.layers.forEach(layer => {
+            layer.setBoundaries(rightBound, bottomBound, this.canvas, activate);
+        })
+
     }
 
     /**
      * Disables the boundaries of the scene
      */
     disableBounds(): void {
-        this.boundsActive = false;
-        this.objects.forEach(object => {
-            object.disableBounds();
+        this.layers.forEach(layer => {
+            layer.disableBounds();
         })
     }
     /**
      * Enables the boundaries of the scene
      */
     activateBounds(): void {
-        this.boundsActive = true;
-        this.objects.forEach(object => {
-            object.activateBounds();
+        this.layers.forEach(layer => {
+            layer.activateBounds();
         })
     }
 
@@ -2411,21 +2495,7 @@ class Scene {
      * @param object GameObject to add to the scene
      */
     addObject(object: GameObject): void {
-        object.scene = this.id;
-        object.physicsEnabled = (this.physics) ? object.physicsEnabled : false;
-        if (object.physicsEnabled && this.physics) {
-            if (!object.square) {
-                var vertexSet = object.polify().map(point => {
-                    return { x: point[0], y: point[1] }
-                })
-                var objectBody = this.Bodies.fromVertices(object.coordinates[0], object.coordinates[1], vertexSet, object.physicsOptions);
-                object.body = objectBody;
-            } else {
-                var objectBody = this.Bodies.rectangle(object.coordinates[0], object.coordinates[1], object.getWidth(), object.getHeight(), object.physicsOptions);
-                object.body = objectBody
-            }
-            this.Composite.add(this.engine.world, [object.body]);
-        }
+        this.layers[this.layers.length - 1].addObject(object, this);
         this.objects.push(object);
     }
 
@@ -2463,9 +2533,9 @@ class Scene {
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.objects.forEach(object => {
-            object.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
-        });
+        this.layers.forEach(layer => {
+            layer.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
+        })
         if (this.lighting && this.isClient) {
             this.diffuseLights(this.ambient, this.fog)
         }
@@ -2510,23 +2580,23 @@ class Scene {
         if (this.clearScene) this.clear();
         this.ctx.fillStyle = "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        if (this.physics) {
-            var physicsNow = performance.now();
-            var pElapsedTime = physicsNow - this.lastPhysicsUpdate;
-            Matter.Engine.update(this.engine, pElapsedTime);
-            this.lastPhysicsUpdate = physicsNow;
-            this.objects.forEach(object => {
-                if (object.physicsEnabled) {
-                    object.updatePhysics();
-                }
-            })
+        for (const layer of this.layers) {
+            if (layer.physics) {
+                var physicsNow = performance.now();
+                var pElapsedTime = physicsNow - layer.lastPhysicsUpdate;
+                Matter.Engine.update(layer.engine, pElapsedTime);
+                layer.lastPhysicsUpdate = physicsNow;
+                layer.objects.forEach(object => {
+                    if (object.physicsEnabled) {
+                        object.updatePhysics();
+                    }
+                })
+            }
+            layer.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
         }
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.objects.forEach(object => {
-            object.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
-        });
         this.collisionMonitors = this.collisionMonitors.map((monitor) => {
             var [o1, o2, f, f2, active] = monitor;
             if (o1.checkCollision(o2)) {
@@ -2575,23 +2645,28 @@ class Scene {
     updateAll(): void {
         if (!this.readyToDraw) return;
         this.update();
-        if (this.physics) {
-            var physicsNow = performance.now();
-            var pElapsedTime = physicsNow - this.lastPhysicsUpdate;
-            Matter.Engine.update(this.engine, pElapsedTime);
-            this.lastPhysicsUpdate = physicsNow;
-            this.objects.forEach(object => {
-                if (object.physicsEnabled) {
-                    object.updatePhysics();
-                }
-            })
+        for (const layer of this.layers) {
+            if (layer.physics) {
+                var physicsNow = performance.now();
+                var pElapsedTime = physicsNow - layer.lastPhysicsUpdate;
+                Matter.Engine.update(layer.engine, pElapsedTime);
+                layer.lastPhysicsUpdate = physicsNow;
+                layer.objects.forEach(object => {
+                    if (object.physicsEnabled) {
+                        object.updatePhysics();
+                    }
+                    object.update();
+                })
+            }else{
+                layer.objects.forEach(object => {
+                    object.update();
+                })
+            }
         }
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.objects.forEach(object => {
-            object.update();
-        });
+
         this.collisionMonitors = this.collisionMonitors.map((monitor) => {
             var [o1, o2, f, f2, active] = monitor;
             if (o1.checkCollision(o2)) {
