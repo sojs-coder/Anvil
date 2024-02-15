@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <script src = "../build/anvil.js"></script>
+        <link rel = 'stylesheet' href = './styles.css'/>
+        <title>HTML</title>
+    </head>
+    <body>
+        <canvas id = "can"></canvas>
+        <script>
+            const {
+                Scene,
+                SceneManager,
+                GameObject,
+                Polygon,
+                Input,
+                Light,
+                Sprite,
+                Layer
+            } = ANVIL;
+
+            const player = new Polygon({
+                points: [
+                    [
+                        0, 0
+                    ],
+                    [
+                        0, 50
+                    ],
+                    [
+                        50, 50
+                    ],
+                    [
+                        50, 0
+                    ]
+                ],
+                backgroundColor: "red"
+            });
+            const background = new Sprite({
+                url: "background.png",
+                coordinates: [
+                    0, 0
+                ],
+                width: 1000,
+                height: 1000
+            });
+            var backgroundLayer = new Layer({
+                parallax: [0.5, 0.5]
+            });
+            var foregroundLayer = new Layer({
+                parallax: [1, 1]
+            });
+            var middleLayer = new Layer({
+                parallax: [0.75, 0.75]
+            });
+            var topLayer = new Layer({
+                parallax: [2, 2]
+            });
+
+            const myScene = new Scene({
+                layers: [backgroundLayer, middleLayer, foregroundLayer, topLayer]
+            });
+            myScene.addObject(player, foregroundLayer.id);
+            myScene.addObject(background, backgroundLayer.id);
+            myScene.bindCamera(player);
+            // generate random squres
+            for (var i = 0; i < 100; i++) {
+                const square = new Polygon({
+                    points: [
+                        [
+                            0, 0
+                        ],
+                        [
+                            0, 50
+                        ],
+                        [
+                            50, 50
+                        ],
+                        [
+                            50, 0
+                        ]
+                    ],
+                    backgroundColor: ["blue", "green", "yellow", "purple"][Math.floor(Math.random() * 4)]
+                });
+                square.move([
+                    Math.random() * 1500,
+                    Math.random() * 1500
+                ]);
+                myScene.addObject(square, middleLayer.id);
+            }
+            for (var i = 0; i < 50; i++) {
+                const square = new Polygon({
+                    points: [
+                        [
+                            0, 0
+                        ],
+                        [
+                            0, 50
+                        ],
+                        [
+                            50, 50
+                        ],
+                        [
+                            50, 0
+                        ]
+                    ],
+                    backgroundColor: "orange"
+                });
+                square.move([
+                    Math.random() * 1500,
+                    Math.random() * 1500
+                ]);
+                myScene.addObject(square, foregroundLayer.id);
+            }
+
+            for (var i = 0; i < 10; i++) {
+                const plane = new Sprite({
+                    url: "plane.png",
+                    coordinates: [
+                        Math.random() * 1500,
+                        Math.random() * 1500
+                    ],
+                    width: 100,
+                    height: 100
+                })
+                myScene.addObject(plane);
+            }
+            const sceneManager = new SceneManager({initialScene: myScene, canvas: document.getElementById("can")});
+
+            // movement
+            const moveLeft = new Input("a", 10);
+            moveLeft.on = () => {
+                player.move([-5, 0]);
+            }
+            moveLeft.activate();
+            const moveRight = new Input("d", 10);
+            moveRight.on = () => {
+                player.move([5, 0]);
+            }
+            moveRight.activate();
+            const moveUp = new Input("w", 10);
+            moveUp.on = () => {
+                player.move([0, -5]);
+            }
+            moveUp.activate();
+            const moveDown = new Input("s", 10);
+            moveDown.on = () => {
+                player.move([0, 5]);
+            }
+            moveDown.activate();
+        </script>
+    </body>
+
+</html>

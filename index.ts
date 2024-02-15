@@ -1728,7 +1728,6 @@ class Sprite extends GameObject {
      */
     reload(): void {
         this.source.src = this.image;
-        this.source.crossOrigin = 'anonymous'
         this.source.onload = () => {
             this.spriteLoaded = true;
         }
@@ -1740,6 +1739,7 @@ class Sprite extends GameObject {
      * @param options The DrawOptions for the object
      */
     draw(options: DrawOptions): void {
+        if(!this.spriteLoaded) return;
         super.draw(options);
         var { ctx, camera } = options;
         if (!this.physicsEnabled) {
@@ -2043,8 +2043,8 @@ class Layer {
     lastPhysicsUpdate: number;
 
     constructor(options: LayerOptions) {
-        this.objects = options.objects;
-        this.physics = options.physics;
+        this.objects = options.objects || [];
+        this.physics = options.physics || false;
         this.boundsActive = options.boundsActive || false;
         this.bounds = options.bounds || [0, 0];
         this.id = uid();
@@ -2089,10 +2089,10 @@ class Layer {
     }
     draw(options: DrawOptions) {
         for (var object of this.objects) {
-            options.camera = multArrays(options.camera, this.parallax) as Vec2;
+            var newCamera = [options.camera[0] * this.parallax[0], options.camera[1] * this.parallax[1]];
             object.draw({
                 ctx: options.ctx,
-                camera: options.camera,
+                camera: newCamera as Vec2,
                 canvas: options.canvas
             });
         }
@@ -2258,7 +2258,6 @@ class Scene {
         this.GPUSettings = options.GPUsettings || {};
         this.layers = options.layers || [];
         if (this.layers.length == 0) {
-            // todo: set defualt layer [TAG: defualtLayer]
             var layer1 = new Layer({
                 physics: options.physics || false,
                 physicsOptions: options.physicsOptions || {},
@@ -2494,8 +2493,15 @@ class Scene {
      * 
      * @param object GameObject to add to the scene
      */
-    addObject(object: GameObject): void {
-        this.layers[this.layers.length - 1].addObject(object, this);
+    addObject(object: GameObject, layerID?: string): void {
+        if (layerID) {
+            var layer = this.layers.find(l => l.id == layerID);
+            if (layer) {
+                layer.addObject(object, this);
+            }
+        } else {
+            this.layers[this.layers.length - 1].addObject(object, this);
+        }
         this.objects.push(object);
     }
 
@@ -2580,6 +2586,9 @@ class Scene {
         if (this.clearScene) this.clear();
         this.ctx.fillStyle = "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        if (this.cameraBind) {
+            this.cameraTo(this.cameraBind);
+        }
         for (const layer of this.layers) {
             if (layer.physics) {
                 var physicsNow = performance.now();
@@ -2594,9 +2603,7 @@ class Scene {
             }
             layer.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
         }
-        if (this.cameraBind) {
-            this.cameraTo(this.cameraBind);
-        }
+
         this.collisionMonitors = this.collisionMonitors.map((monitor) => {
             var [o1, o2, f, f2, active] = monitor;
             if (o1.checkCollision(o2)) {
@@ -2657,7 +2664,7 @@ class Scene {
                     }
                     object.update();
                 })
-            }else{
+            } else {
                 layer.objects.forEach(object => {
                     object.update();
                 })
@@ -2693,6 +2700,11 @@ class Scene {
     removeObject(object: GameObject): void {
         this.objects.filter(compare => {
             return !(compare.id == object.id);
+        });
+        this.layers.forEach(layer => {
+            if(layer.id == object.layerID) {
+                layer.removeObject(object);
+            }
         })
     }
 
@@ -4005,6 +4017,7 @@ var ANVIL = {
     DirectionalLight,
 
     Scene,
+    Layer,
     SceneManager,
     MultiPlayerSceneManager,
 
@@ -4040,6 +4053,7 @@ export {
     DirectionalLight,
 
     Scene,
+    Layer,
     SceneManager,
     MultiPlayerSceneManager,
 
