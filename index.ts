@@ -639,6 +639,37 @@ type CollisionMonitor = [GameObject, GameObject, Function, Function, boolean];
  */
 type EventOnFunction = (event: Event | GameObject) => void;
 
+
+interface AmplifiedMedia {
+    context: AudioContext;
+    source: MediaElementAudioSourceNode;
+    gain: GainNode;
+    media: HTMLMediaElement;
+    getAmpLevel: () => number;
+}
+/**
+ * Used to amplify the sound of a media element
+ * https://cwestblog.com/2017/08/17/html5-getting-more-volume-from-the-web-audio-api/
+ * 
+ * @param mediaElem Media element to apply gain on
+ * @param multiplier % to amplify sound
+ * @returns All relevant data for the amplified media
+ */
+function amplifyMedia(mediaElem: HTMLMediaElement, multiplier: number): AmplifiedMedia {
+    var context = new (window.AudioContext),
+        result = {
+            context: context,
+            source: context.createMediaElementSource(mediaElem),
+            gain: context.createGain(),
+            media: mediaElem,
+            amplify: function (multiplier: number) { result.gain.gain.value = multiplier; },
+            getAmpLevel: function () { return result.gain.gain.value; }
+        };
+    result.source.connect(result.gain);
+    result.gain.connect(context.destination);
+    result.amplify(multiplier);
+    return result;
+}
 // Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
 /**
  * Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
@@ -2091,6 +2122,7 @@ class Layer {
     }
     draw(options: DrawOptions) {
         for (var object of this.objects) {
+            object.update();
             var newCamera = [options.camera[0] * this.parallax[0], options.camera[1] * this.parallax[1]];
             object.draw({
                 ctx: options.ctx,
@@ -2489,7 +2521,30 @@ class Scene {
             layer.activateBounds();
         })
     }
+    treatAsPlayer(object: GameObject, movementSpeed: number): void {
+        var upInput = new Input("w", 10);
+        var downInput = new Input("s", 10);
+        var leftInput = new Input("a", 10);
+        var rightInput = new Input("d", 10);
+        upInput.on = () => {
+            object.move([0, -movementSpeed]);
+        }
+        downInput.on = () => {
+            object.move([0, movementSpeed]);
+        }
+        leftInput.on = () => {
+            object.move([-movementSpeed, 0]);
+        }
+        rightInput.on = () => {
+            object.move([movementSpeed, 0]);
+        }
+        upInput.activate();
+        downInput.activate();
+        leftInput.activate();
+        rightInput.activate();
 
+        this.bindCamera(object)
+    }
     /**
      * Adds the specified GameObject to the scene
      * 
@@ -4052,10 +4107,152 @@ class PlayerClient {
     }
 }
 
+interface SoundOptions {
+    source: string;
+    volume?: number;
+    loop?: boolean;
+    playbackRate?: number;
+}
+class Sound {
+    sound: HTMLAudioElement;
+    volume: number;
+    loop: boolean;
+    playbackRate: number;
+    ready: boolean;
+    wantsToPlay: boolean;
+    constructor(options: SoundOptions) {
+        this.sound = new Audio(options.source);
+        this.volume = options.volume || 1;
+        this.loop = options.loop || false;
+        this.playbackRate = options.playbackRate || 1;
+
+        this.wantsToPlay = false;
+        this.ready = false;
+        this.sound.addEventListener("canplaythrough", () => {
+            this.ready = true;
+            if (this.wantsToPlay) this.play()
+        });
+    }
+    play(): boolean {
+        if (!this.ready) {
+            this.wantsToPlay = true;
+            return false
+        }
+        this.sound.volume = this.volume;
+        this.sound.loop = this.loop;
+        this.sound.playbackRate = this.playbackRate;
+        this.sound.play();
+        return true;
+    }
+    setVolume(volume: number){
+        this.volume = volume;
+        this.sound.volume = volume;
+    }
+    stop() {
+        this.sound.pause();
+    }
+}
+
+interface SoundEmitterOptions extends SoundOptions {
+    fallOffFunction?: (distance: number) => number;
+    maxDistance?: number;
+    minDistance?: number;
+    startPlaying?: boolean;
+    listener: GameObject;
+}
+class SoundEmitterPolygon extends Polygon {
+    sound: Sound;
+    listener: GameObject
+    constructor(options: PolygonOptions, soundOptions: SoundEmitterOptions) {
+        super(options);
+        this.sound = new Sound(soundOptions);
+        this.listener = soundOptions.listener;
+
+        this.maxDistance = soundOptions.maxDistance || 1000;
+        this.minDistance = soundOptions.minDistance || 0;
+        this.fallOffFunction = soundOptions.fallOffFunction || ((distance: number) => {
+            var falloffstart = this.maxDistance - this.minDistance;
+            var dist = distance - this.minDistance;
+            var vol = 1 - (dist / falloffstart);
+            if (vol < 0) vol = 0;
+            return vol;
+        });
+        var startPlaying = (soundOptions.startPlaying == undefined) ? true : soundOptions.startPlaying;
+        if (startPlaying) this.sound.play();
+    }
+    update() {
+        var dist = distance(
+            getCentroid(this.polify()),
+            getCentroid(this.listener.polify())
+        );
+        if (dist < this.minDistance) {
+            this.sound.setVolume(1)
+        } else if (dist > this.maxDistance) {
+            this.sound.setVolume(0)
+        } else {
+            this.sound.setVolume(this.fallOffFunction(dist));
+        }
+        console.log(this.sound)
+        super.update();
+    }
+    playSound() {
+        this.sound.play();
+    }
+    stopSound() {
+        this.sound.stop();
+    }
+}
+class SoundEmitterSprite extends Sprite {
+    sound: Sound;
+    listener: GameObject
+    constructor(options: SpriteOptions, soundOptions: SoundEmitterOptions) {
+        super(options);
+        this.sound = new Sound(soundOptions);
+        this.listener = soundOptions.listener;
+
+        this.maxDistance = soundOptions.maxDistance || 1000;
+        this.minDistance = soundOptions.minDistance || 0;
+        this.fallOffFunction = soundOptions.fallOffFunction || ((distance: number) => {
+            var falloffstart = this.maxDistance - this.minDistance;
+            var dist = distance - this.minDistance;
+            var vol = 1 - (dist / falloffstart);
+            if (vol < 0) vol = 0;
+            return vol;
+        });
+        var startPlaying = (soundOptions.startPlaying == undefined) ? true : soundOptions.startPlaying;
+        if (startPlaying) this.sound.play();
+    }
+    update() {
+        var dist = distance(
+            getCentroid(this.polify()),
+            getCentroid(this.listener.polify())
+        );
+        if (dist < this.minDistance) {
+            this.sound.setVolume(1)
+        } else if (dist > this.maxDistance) {
+            this.sound.setVolume(0)
+        } else {
+            this.sound.setVolume(this.fallOffFunction(dist));
+        }
+        console.log(this.sound)
+        super.update();
+    }
+    playSound() {
+        this.sound.play();
+    }
+    stopSound() {
+        this.sound.stop();
+    }
+}
+
 var ANVIL = {
     GameObject,
     Polygon,
     Sprite,
+
+    Sound,
+    SoundEmitterPolygon,
+    SoundEmitterSprite,
 
     Light,
     DirectionalLight,
@@ -4087,12 +4284,17 @@ var ANVIL = {
     uid,
     checkSquareCollision,
     checkCollision,
+    amplifyMedia
 };
 export {
     GameObject,
     Polygon,
     Sprite,
 
+    Sound,
+    SoundEmitterPolygon,
+    SoundEmitterSprite,
+
     Light,
     DirectionalLight,
 
@@ -4123,6 +4325,7 @@ export {
     uid,
     checkSquareCollision,
     checkCollision,
+    amplifyMedia,
 
     PlayerClientOptions,
     GameObjectOptions,

@@ -11106,6 +11106,28 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 // 
+/**
+ * Used to amplify the sound of a media element
+ * https://cwestblog.com/2017/08/17/html5-getting-more-volume-from-the-web-audio-api/
+ *
+ * @param mediaElem Media element to apply gain on
+ * @param multiplier % to amplify sound
+ * @returns All relevant data for the amplified media
+ */
+function amplifyMedia(mediaElem, multiplier) {
+    var context = new (window.AudioContext), result = {
+        context: context,
+        source: context.createMediaElementSource(mediaElem),
+        gain: context.createGain(),
+        media: mediaElem,
+        amplify: function (multiplier) { result.gain.gain.value = multiplier; },
+        getAmpLevel: function () { return result.gain.gain.value; }
+    };
+    result.source.connect(result.gain);
+    result.gain.connect(context.destination);
+    result.amplify(multiplier);
+    return result;
+}
 // Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
 /**
  * Used for rendering lights onto a scene, called each pixel and calculates the brightness of the pixel based on the lights in the scene
@@ -12427,6 +12449,7 @@ var Layer = /** @class */ (function () {
     Layer.prototype.draw = function (options) {
         for (var _i = 0, _a = this.objects; _i < _a.length; _i++) {
             var object = _a[_i];
+            object.update();
             var newCamera = [options.camera[0] * this.parallax[0], options.camera[1] * this.parallax[1]];
             object.draw({
                 ctx: options.ctx,
@@ -12787,6 +12810,29 @@ var Scene = /** @class */ (function () {
         this.layers.forEach(function (layer) {
             layer.activateBounds();
         });
+    };
+    Scene.prototype.treatAsPlayer = function (object, movementSpeed) {
+        var upInput = new Input("w", 10);
+        var downInput = new Input("s", 10);
+        var leftInput = new Input("a", 10);
+        var rightInput = new Input("d", 10);
+        upInput.on = function () {
+            object.move([0, -movementSpeed]);
+        };
+        downInput.on = function () {
+            object.move([0, movementSpeed]);
+        };
+        leftInput.on = function () {
+            object.move([-movementSpeed, 0]);
+        };
+        rightInput.on = function () {
+            object.move([movementSpeed, 0]);
+        };
+        upInput.activate();
+        downInput.activate();
+        leftInput.activate();
+        rightInput.activate();
+        this.bindCamera(object);
     };
     /**
      * Adds the specified GameObject to the scene
@@ -14243,10 +14289,90 @@ var PlayerClient = /** @class */ (function () {
     };
     return PlayerClient;
 }());
+var Sound = /** @class */ (function () {
+    function Sound(options) {
+        var _this = this;
+        this.sound = new Audio(options.source);
+        this.volume = options.volume || 1;
+        this.loop = options.loop || false;
+        this.playbackRate = options.playbackRate || 1;
+        this.wantsToPlay = false;
+        this.ready = false;
+        this.sound.addEventListener("canplaythrough", function () {
+            _this.ready = true;
+            if (_this.wantsToPlay)
+                _this.play();
+        });
+    }
+    Sound.prototype.play = function () {
+        if (!this.ready) {
+            this.wantsToPlay = true;
+            return false;
+        }
+        this.sound.volume = this.volume;
+        this.sound.loop = this.loop;
+        this.sound.playbackRate = this.playbackRate;
+        this.sound.play();
+        return true;
+    };
+    Sound.prototype.setVolume = function (volume) {
+        this.volume = volume;
+        this.sound.volume = volume;
+    };
+    Sound.prototype.stop = function () {
+        this.sound.pause();
+    };
+    return Sound;
+}());
+var SoundEmitterPolygon = /** @class */ (function (_super) {
+    __extends(SoundEmitterPolygon, _super);
+    function SoundEmitterPolygon(options, soundOptions) {
+        var _this = _super.call(this, options) || this;
+        _this.sound = new Sound(soundOptions);
+        _this.listener = soundOptions.listener;
+        _this.maxDistance = soundOptions.maxDistance || 1000;
+        _this.minDistance = soundOptions.minDistance || 0;
+        _this.fallOffFunction = soundOptions.fallOffFunction || (function (distance) {
+            var falloffstart = _this.maxDistance - _this.minDistance;
+            var dist = distance - _this.minDistance;
+            var vol = 1 - (dist / falloffstart);
+            if (vol < 0)
+                vol = 0;
+            return vol;
+        });
+        var startPlaying = (soundOptions.startPlaying == undefined) ? true : soundOptions.startPlaying;
+        if (startPlaying)
+            _this.sound.play();
+        return _this;
+    }
+    SoundEmitterPolygon.prototype.update = function () {
+        var dist = distance(getCentroid(this.polify()), getCentroid(this.listener.polify()));
+        if (dist < this.minDistance) {
+            this.sound.setVolume(1);
+        }
+        else if (dist > this.maxDistance) {
+            this.sound.setVolume(0);
+        }
+        else {
+            this.sound.setVolume(this.fallOffFunction(dist));
+        }
+        console.log(this.sound);
+        _super.prototype.update.call(this);
+    };
+    SoundEmitterPolygon.prototype.playSound = function () {
+        this.sound.play();
+    };
+    SoundEmitterPolygon.prototype.stopSound = function () {
+        this.sound.stop();
+    };
+    return SoundEmitterPolygon;
+}(Polygon));
 var ANVIL = {
     GameObject: GameObject,
     Polygon: Polygon,
     Sprite: Sprite,
+    Sound: Sound,
+    SoundEmitterPolygon: SoundEmitterPolygon,
     Light: Light,
     DirectionalLight: DirectionalLight,
     Scene: Scene,
@@ -14273,6 +14399,7 @@ var ANVIL = {
     uid: uid,
     checkSquareCollision: checkSquareCollision,
     checkCollision: checkCollision,
+    amplifyMedia: amplifyMedia
 };
 if (typeof window != "undefined") {
     window.ANVIL = ANVIL;
