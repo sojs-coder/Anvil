@@ -11808,7 +11808,6 @@ var GameObject = /** @class */ (function () {
                 return false;
         }
         if (this.boundsActive) {
-            console.log("bounds active");
             if (newCoords[0] < 0 || newCoords[0] + this.getWidth() > this.bounds[0] || newCoords[1] < 0 || newCoords[1] + this.getHeight() > this.bounds[1]) {
                 var passesRightBound = (newCoords[0] + this.getWidth() > this.bounds[0]);
                 var passesLeftBound = (newCoords[0] < 0);
@@ -11860,9 +11859,9 @@ var GameObject = /** @class */ (function () {
      * @param polygon The polygon (lower case, not type Polygon) to check for a collision with
      * @returns Boolean, true of the object is colliding with the other object, false otherwise
      */
-    GameObject.prototype.checkPolygonalCollision = function (ploygon) {
+    GameObject.prototype.checkPolygonalCollision = function (polygon) {
         var p1 = this.polify();
-        var p2 = ploygon;
+        var p2 = polygon;
         var square = isSquare(p2);
         var convex = isConvex(p2);
         if ((this.square || this.convex) && (square || convex)) {
@@ -12104,8 +12103,8 @@ var Sprite = /** @class */ (function (_super) {
      */
     Sprite.prototype.reload = function () {
         var _this = this;
+        this.source.crossOrigin = "ananymous";
         this.source.src = this.image;
-        this.source.crossOrigin = 'anonymous';
         this.source.onload = function () {
             _this.spriteLoaded = true;
         };
@@ -12116,6 +12115,8 @@ var Sprite = /** @class */ (function (_super) {
      * @param options The DrawOptions for the object
      */
     Sprite.prototype.draw = function (options) {
+        if (!this.spriteLoaded)
+            return;
         _super.prototype.draw.call(this, options);
         var ctx = options.ctx, camera = options.camera;
         if (!this.physicsEnabled) {
@@ -12375,6 +12376,95 @@ var DirectionalLight = /** @class */ (function (_super) {
     };
     return DirectionalLight;
 }(Light));
+var Layer = /** @class */ (function () {
+    function Layer(options) {
+        this.objects = options.objects || [];
+        this.physics = options.physics || false;
+        this.boundsActive = options.boundsActive || false;
+        this.bounds = options.bounds || [0, 0];
+        this.id = uid();
+        this.parallax = options.parallax || [1, 1];
+        if (options.physics) {
+            this.physics = true;
+            this.Engine = Matter.Engine;
+            this.Bodies = Matter.Bodies;
+            this.Composite = Matter.Composite;
+            this.engine = Matter.Engine.create(options.physicsOptions);
+            this.lastPhysicsUpdate = performance.now();
+        }
+        else {
+            this.physics = false;
+            this.Engine = null;
+            this.Bodies = null;
+            this.Composite = null;
+            this.engine = null;
+            this.lastPhysicsUpdate = 0;
+        }
+    }
+    Layer.prototype.addObject = function (object, scene) {
+        object.scene = scene.id;
+        object.layerID = this.id;
+        object.physicsEnabled = (this.physics) ? object.physicsEnabled : false;
+        if (object.physicsEnabled && this.physics) {
+            if (!object.square) {
+                var vertexSet = object.polify().map(function (point) {
+                    return { x: point[0], y: point[1] };
+                });
+                var objectBody = this.Bodies.fromVertices(object.coordinates[0], object.coordinates[1], vertexSet, object.physicsOptions);
+                object.body = objectBody;
+            }
+            else {
+                var objectBody = this.Bodies.rectangle(object.coordinates[0], object.coordinates[1], object.getWidth(), object.getHeight(), object.physicsOptions);
+                object.body = objectBody;
+            }
+            this.Composite.add(this.engine.world, [object.body]);
+        }
+        this.objects.push(object);
+    };
+    Layer.prototype.removeObject = function (object) {
+        this.objects = this.objects.filter(function (obj) { return obj != object; });
+    };
+    Layer.prototype.draw = function (options) {
+        for (var _i = 0, _a = this.objects; _i < _a.length; _i++) {
+            var object = _a[_i];
+            var newCamera = [options.camera[0] * this.parallax[0], options.camera[1] * this.parallax[1]];
+            object.draw({
+                ctx: options.ctx,
+                camera: newCamera,
+                canvas: options.canvas
+            });
+        }
+    };
+    Layer.prototype.setBoundaries = function (rightBound, bottomBound, canvas, activate) {
+        var _this = this;
+        if (activate === void 0) { activate = true; }
+        this.bounds = [rightBound || canvas.width, bottomBound || canvas.height];
+        this.objects.forEach(function (object) {
+            object.setBounds(_this.bounds);
+        });
+        this.boundsActive = activate;
+        if (this.physics) {
+            var topBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, -10, this.bounds[0], 10, { isStatic: true, friction: 0 });
+            var bottomBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, this.bounds[1] + 10, this.bounds[0], 10, { isStatic: true, friction: 0 });
+            var leftBoundObj = this.Bodies.rectangle(-10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
+            var rightBoundObj = this.Bodies.rectangle(this.bounds[0] + 10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
+            this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
+        }
+    };
+    Layer.prototype.disableBounds = function () {
+        this.boundsActive = false;
+        this.objects.forEach(function (object) {
+            object.disableBounds();
+        });
+    };
+    Layer.prototype.activateBounds = function () {
+        this.boundsActive = true;
+        this.objects.forEach(function (object) {
+            object.activateBounds();
+        });
+    };
+    return Layer;
+}());
 /**
  * @class Scene
  * @classdesc Scene class, used for building scenes
@@ -12396,11 +12486,6 @@ var DirectionalLight = /** @class */ (function (_super) {
  * @property {number} fog - Fog of the scene
  * @property {number} ambient - Ambient of the scene
  * @property {boolean} clearScene - Whether or not to clear the scene
- * @property {boolean} physics - Whether or not physics is enabled
- * @property {any} Engine - Matter.js Engine
- * @property {any} Bodies - Matter.js Bodies
- * @property {any} Composite - Matter.js Composite
- * @property {any} engine - Matter.js engine instance
  * @property {HTMLCanvasElement} canvas - Canvas of the scene
  * @property {CanvasRenderingContext2D} ctx - Canvas rendering context of the scene
  * @property {number} width - Width of the scene
@@ -12478,6 +12563,19 @@ var Scene = /** @class */ (function () {
         this.isActiveScene = false;
         this.isClient = (typeof document == "undefined") ? false : true;
         this.GPUSettings = options.GPUsettings || {};
+        this.layers = options.layers || [];
+        if (this.layers.length == 0) {
+            var layer1 = new Layer({
+                physics: options.physics || false,
+                physicsOptions: options.physicsOptions || {},
+                objects: [],
+                boundsActive: this.boundsActive,
+                bounds: this.bounds,
+                parallax: [1, 1]
+            });
+            this.layers.push(layer1);
+            // layers are linear... first layer is layer 0, second is layer 1, etc.
+        }
         if (this.lighting) {
             this.fog = (options.lightOptions) ? options.lightOptions.fog || 1.3 : 1.3;
             this.ambient = (options.lightOptions) ? options.lightOptions.ambient || 0.2 : 0.2;
@@ -12491,20 +12589,6 @@ var Scene = /** @class */ (function () {
         }
         else if (this.lighting && this.isClient) {
             this.gpu = new GPU.GPU(this.GPUSettings);
-        }
-        if (options.physics) {
-            this.physics = true;
-            this.Engine = Matter.Engine;
-            this.Bodies = Matter.Bodies;
-            this.Composite = Matter.Composite;
-            this.engine = Matter.Engine.create(options.physicsOptions);
-        }
-        else {
-            this.physics = false;
-            this.Engine = null;
-            this.Bodies = null;
-            this.Composite = null;
-            this.engine = null;
         }
         this.readyToDraw = false;
         this.drawMode = "full";
@@ -12659,8 +12743,6 @@ var Scene = /** @class */ (function () {
         var pix = this.ctx.getImageData(0, 0, width, height).data;
         var flights = this.formatLights(lights, this.cameraAngle);
         var dflights = this.formatDLights(dlights, this.cameraAngle);
-        // var flights = Array.from(this.formattedLights);
-        // var dflights = Array.from(this.formattedDLights);
         // Run the GPU kernel
         if (flights.length <= 0) {
             flights = [0, 0, 0, 0, 0, 0, 0];
@@ -12686,35 +12768,24 @@ var Scene = /** @class */ (function () {
     Scene.prototype.setBoundaries = function (rightBound, bottomBound, activate) {
         var _this = this;
         if (activate === void 0) { activate = true; }
-        this.bounds = [rightBound || this.canvas.width, bottomBound || this.canvas.height];
-        this.objects.forEach(function (object) {
-            object.setBounds(_this.bounds);
+        this.layers.forEach(function (layer) {
+            layer.setBoundaries(rightBound, bottomBound, _this.canvas, activate);
         });
-        this.boundsActive = activate;
-        if (this.physics) {
-            var topBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, -10, this.bounds[0], 10, { isStatic: true, friction: 0 });
-            var bottomBoundObj = this.Bodies.rectangle(this.bounds[0] / 2, this.bounds[1] + 10, this.bounds[0], 10, { isStatic: true, friction: 0 });
-            var leftBoundObj = this.Bodies.rectangle(-10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
-            var rightBoundObj = this.Bodies.rectangle(this.bounds[0] + 10, this.bounds[1] / 2, 10, this.bounds[1], { isStatic: true, friction: 0 });
-            this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
-        }
     };
     /**
      * Disables the boundaries of the scene
      */
     Scene.prototype.disableBounds = function () {
-        this.boundsActive = false;
-        this.objects.forEach(function (object) {
-            object.disableBounds();
+        this.layers.forEach(function (layer) {
+            layer.disableBounds();
         });
     };
     /**
      * Enables the boundaries of the scene
      */
     Scene.prototype.activateBounds = function () {
-        this.boundsActive = true;
-        this.objects.forEach(function (object) {
-            object.activateBounds();
+        this.layers.forEach(function (layer) {
+            layer.activateBounds();
         });
     };
     /**
@@ -12722,22 +12793,15 @@ var Scene = /** @class */ (function () {
      *
      * @param object GameObject to add to the scene
      */
-    Scene.prototype.addObject = function (object) {
-        object.scene = this.id;
-        object.physicsEnabled = (this.physics) ? object.physicsEnabled : false;
-        if (object.physicsEnabled && this.physics) {
-            if (!object.square) {
-                var vertexSet = object.polify().map(function (point) {
-                    return { x: point[0], y: point[1] };
-                });
-                var objectBody = this.Bodies.fromVertices(object.coordinates[0], object.coordinates[1], vertexSet, object.physicsOptions);
-                object.body = objectBody;
+    Scene.prototype.addObject = function (object, layerID) {
+        if (layerID) {
+            var layer = this.layers.find(function (l) { return l.id == layerID; });
+            if (layer) {
+                layer.addObject(object, this);
             }
-            else {
-                var objectBody = this.Bodies.rectangle(object.coordinates[0], object.coordinates[1], object.getWidth(), object.getHeight(), object.physicsOptions);
-                object.body = objectBody;
-            }
-            this.Composite.add(this.engine.world, [object.body]);
+        }
+        else {
+            this.layers[this.layers.length - 1].addObject(object, this);
         }
         this.objects.push(object);
     };
@@ -12776,8 +12840,8 @@ var Scene = /** @class */ (function () {
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.objects.forEach(function (object) {
-            object.draw({ ctx: _this.ctx, camera: _this.cameraAngle, canvas: _this.canvas });
+        this.layers.forEach(function (layer) {
+            layer.draw({ ctx: _this.ctx, camera: _this.cameraAngle, canvas: _this.canvas });
         });
         if (this.lighting && this.isClient) {
             this.diffuseLights(this.ambient, this.fog);
@@ -12814,7 +12878,6 @@ var Scene = /** @class */ (function () {
      * It also recalculates the FPS if enabled.
      */
     Scene.prototype.draw = function () {
-        var _this = this;
         this.check();
         if (!this.readyToDraw)
             return;
@@ -12825,23 +12888,24 @@ var Scene = /** @class */ (function () {
             this.clear();
         this.ctx.fillStyle = "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        if (this.physics) {
-            var physicsNow = performance.now();
-            var pElapsedTime = physicsNow - this.lastPhysicsUpdate;
-            Matter.Engine.update(this.engine, pElapsedTime);
-            this.lastPhysicsUpdate = physicsNow;
-            this.objects.forEach(function (object) {
-                if (object.physicsEnabled) {
-                    object.updatePhysics();
-                }
-            });
-        }
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.objects.forEach(function (object) {
-            object.draw({ ctx: _this.ctx, camera: _this.cameraAngle, canvas: _this.canvas });
-        });
+        for (var _i = 0, _a = this.layers; _i < _a.length; _i++) {
+            var layer = _a[_i];
+            if (layer.physics) {
+                var physicsNow = performance.now();
+                var pElapsedTime = physicsNow - layer.lastPhysicsUpdate;
+                Matter.Engine.update(layer.engine, pElapsedTime);
+                layer.lastPhysicsUpdate = physicsNow;
+                layer.objects.forEach(function (object) {
+                    if (object.physicsEnabled) {
+                        object.updatePhysics();
+                    }
+                });
+            }
+            layer.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
+        }
         this.collisionMonitors = this.collisionMonitors.map(function (monitor) {
             var o1 = monitor[0], o2 = monitor[1], f = monitor[2], f2 = monitor[3], active = monitor[4];
             if (o1.checkCollision(o2)) {
@@ -12888,23 +12952,29 @@ var Scene = /** @class */ (function () {
         if (!this.readyToDraw)
             return;
         this.update();
-        if (this.physics) {
-            var physicsNow = performance.now();
-            var pElapsedTime = physicsNow - this.lastPhysicsUpdate;
-            Matter.Engine.update(this.engine, pElapsedTime);
-            this.lastPhysicsUpdate = physicsNow;
-            this.objects.forEach(function (object) {
-                if (object.physicsEnabled) {
-                    object.updatePhysics();
-                }
-            });
+        for (var _i = 0, _a = this.layers; _i < _a.length; _i++) {
+            var layer = _a[_i];
+            if (layer.physics) {
+                var physicsNow = performance.now();
+                var pElapsedTime = physicsNow - layer.lastPhysicsUpdate;
+                Matter.Engine.update(layer.engine, pElapsedTime);
+                layer.lastPhysicsUpdate = physicsNow;
+                layer.objects.forEach(function (object) {
+                    if (object.physicsEnabled) {
+                        object.updatePhysics();
+                    }
+                    object.update();
+                });
+            }
+            else {
+                layer.objects.forEach(function (object) {
+                    object.update();
+                });
+            }
         }
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.objects.forEach(function (object) {
-            object.update();
-        });
         this.collisionMonitors = this.collisionMonitors.map(function (monitor) {
             var o1 = monitor[0], o2 = monitor[1], f = monitor[2], f2 = monitor[3], active = monitor[4];
             if (o1.checkCollision(o2)) {
@@ -12931,6 +13001,11 @@ var Scene = /** @class */ (function () {
         this.objects.filter(function (compare) {
             return !(compare.id == object.id);
         });
+        this.layers.forEach(function (layer) {
+            if (layer.id == object.layerID) {
+                layer.removeObject(object);
+            }
+        });
     };
     /**
      * Enables collisions between the specified objects
@@ -12941,9 +13016,25 @@ var Scene = /** @class */ (function () {
      * @param fo Function that runs when the objects collide (called once)
      * @param ff Function that runs when the objects separate (called once)
      */
-    Scene.prototype.enableCollisionsBetween = function (o1, o2, fo, ff) {
-        this.collisionMonitors.push([o1, o2, fo, ff, false]);
-        this.collisionMonitors.push([o2, o1, fo, ff, false]);
+    Scene.prototype.enableCollisionsBetween = function (o1, o2, fo, ff, options) {
+        var objectsExist = true;
+        if (!this.objects.includes(o1) || !this.objects.includes(o2)) {
+            objectsExist = false;
+        }
+        if (!objectsExist) {
+            throw new Error("One or more of the objects passed to enableCollisionsBetween do not exist in scene ".concat(this.id, "'s object list.\nPlease make sure to add the objects to the scene before enabling collisions between them."));
+        }
+        if (options && options.crossLayers) {
+            console.log(o1.layerID, o2.layerID);
+            this.collisionMonitors.push([o1, o2, fo, ff, false]);
+            this.collisionMonitors.push([o2, o1, fo, ff, false]);
+        }
+        else {
+            if (o1.layerID == o2.layerID) {
+                this.collisionMonitors.push([o1, o2, fo, ff, false]);
+                this.collisionMonitors.push([o2, o1, fo, ff, false]);
+            }
+        }
     };
     /**
      * Binds the scene's camera to a GameObject
@@ -13273,15 +13364,41 @@ var Input = /** @class */ (function () {
                 var rect = activateOn.canvas.getBoundingClientRect();
                 var x = event.clientX - rect.left;
                 var y = event.clientY - rect.top;
+                var foundObjects = [];
                 activateOn.objects.forEach(function (object) {
                     var r = sumArrays([x, y], activateOn.cameraAngle);
                     if (checkCollision(object.polify(), [r])) {
-                        _this.on(object);
-                        document.addEventListener("mouseup", function (event) {
-                            object.returnState();
-                        });
+                        foundObjects.push(object);
                     }
                 });
+                if (foundObjects.length > 0) {
+                    var topObject = foundObjects[0];
+                    var layerIDs = activateOn.layers.map(function (layer) { return layer.id; });
+                    foundObjects.forEach(function (object) {
+                        if (layerIDs.indexOf(object.layerID) > layerIDs.indexOf(topObject.layerID)) {
+                            topObject = object;
+                        }
+                    });
+                    _this.on({
+                        gameObject: topObject,
+                        realX: x,
+                        realY: y,
+                        x: x + activateOn.cameraAngle[0],
+                        y: y + activateOn.cameraAngle[1]
+                    });
+                    document.addEventListener("mouseup", function (event) {
+                        topObject.returnState();
+                    });
+                }
+                else {
+                    _this.on({
+                        gameObject: null,
+                        realX: x,
+                        realY: y,
+                        x: x + activateOn.cameraAngle[0],
+                        y: y + activateOn.cameraAngle[1]
+                    });
+                }
             });
         }
         else {
@@ -14133,6 +14250,7 @@ var ANVIL = {
     Light: Light,
     DirectionalLight: DirectionalLight,
     Scene: Scene,
+    Layer: Layer,
     SceneManager: SceneManager,
     MultiPlayerSceneManager: MultiPlayerSceneManager,
     Player: Player,
