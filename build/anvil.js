@@ -12103,6 +12103,7 @@ var Sprite = /** @class */ (function (_super) {
      */
     Sprite.prototype.reload = function () {
         var _this = this;
+        this.source.crossOrigin = "ananymous";
         this.source.src = this.image;
         this.source.onload = function () {
             _this.spriteLoaded = true;
@@ -13015,9 +13016,25 @@ var Scene = /** @class */ (function () {
      * @param fo Function that runs when the objects collide (called once)
      * @param ff Function that runs when the objects separate (called once)
      */
-    Scene.prototype.enableCollisionsBetween = function (o1, o2, fo, ff) {
-        this.collisionMonitors.push([o1, o2, fo, ff, false]);
-        this.collisionMonitors.push([o2, o1, fo, ff, false]);
+    Scene.prototype.enableCollisionsBetween = function (o1, o2, fo, ff, options) {
+        var objectsExist = true;
+        if (!this.objects.includes(o1) || !this.objects.includes(o2)) {
+            objectsExist = false;
+        }
+        if (!objectsExist) {
+            throw new Error("One or more of the objects passed to enableCollisionsBetween do not exist in scene ".concat(this.id, "'s object list.\nPlease make sure to add the objects to the scene before enabling collisions between them."));
+        }
+        if (options && options.crossLayers) {
+            console.log(o1.layerID, o2.layerID);
+            this.collisionMonitors.push([o1, o2, fo, ff, false]);
+            this.collisionMonitors.push([o2, o1, fo, ff, false]);
+        }
+        else {
+            if (o1.layerID == o2.layerID) {
+                this.collisionMonitors.push([o1, o2, fo, ff, false]);
+                this.collisionMonitors.push([o2, o1, fo, ff, false]);
+            }
+        }
     };
     /**
      * Binds the scene's camera to a GameObject
@@ -13347,15 +13364,41 @@ var Input = /** @class */ (function () {
                 var rect = activateOn.canvas.getBoundingClientRect();
                 var x = event.clientX - rect.left;
                 var y = event.clientY - rect.top;
+                var foundObjects = [];
                 activateOn.objects.forEach(function (object) {
                     var r = sumArrays([x, y], activateOn.cameraAngle);
                     if (checkCollision(object.polify(), [r])) {
-                        _this.on(object);
-                        document.addEventListener("mouseup", function (event) {
-                            object.returnState();
-                        });
+                        foundObjects.push(object);
                     }
                 });
+                if (foundObjects.length > 0) {
+                    var topObject = foundObjects[0];
+                    var layerIDs = activateOn.layers.map(function (layer) { return layer.id; });
+                    foundObjects.forEach(function (object) {
+                        if (layerIDs.indexOf(object.layerID) > layerIDs.indexOf(topObject.layerID)) {
+                            topObject = object;
+                        }
+                    });
+                    _this.on({
+                        gameObject: topObject,
+                        realX: x,
+                        realY: y,
+                        x: x + activateOn.cameraAngle[0],
+                        y: y + activateOn.cameraAngle[1]
+                    });
+                    document.addEventListener("mouseup", function (event) {
+                        topObject.returnState();
+                    });
+                }
+                else {
+                    _this.on({
+                        gameObject: null,
+                        realX: x,
+                        realY: y,
+                        x: x + activateOn.cameraAngle[0],
+                        y: y + activateOn.cameraAngle[1]
+                    });
+                }
             });
         }
         else {

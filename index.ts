@@ -16,7 +16,9 @@ interface NotReadyStackEmitItem {
     type: string;
     args: Array<any>;
 }
-
+interface CollisionMonitorOptions {
+    crossLayers?: boolean;
+}
 /**
  * Options to configure PlayerClient
  * 
@@ -1722,11 +1724,11 @@ class Sprite extends GameObject {
     getHeight(): number {
         return this.height;
     }
-
     /**
      * Loads the sprite, or reloads the image source when the image is changed
      */
     reload(): void {
+        this.source.crossOrigin = "ananymous";
         this.source.src = this.image;
         this.source.onload = () => {
             this.spriteLoaded = true;
@@ -1739,7 +1741,7 @@ class Sprite extends GameObject {
      * @param options The DrawOptions for the object
      */
     draw(options: DrawOptions): void {
-        if(!this.spriteLoaded) return;
+        if (!this.spriteLoaded) return;
         super.draw(options);
         var { ctx, camera } = options;
         if (!this.physicsEnabled) {
@@ -2372,7 +2374,7 @@ class Scene {
         this.drawMode = <"full" | "plain">drawMode;
 
     }
-    /**
+    /** 
      * Renders lights onto the scene. Automatically calculates if lights are in the camera view and removes them from the render if they are not.
      * 
      * @param ambient The ambient lighting in the scene
@@ -2702,7 +2704,7 @@ class Scene {
             return !(compare.id == object.id);
         });
         this.layers.forEach(layer => {
-            if(layer.id == object.layerID) {
+            if (layer.id == object.layerID) {
                 layer.removeObject(object);
             }
         })
@@ -2717,9 +2719,25 @@ class Scene {
      * @param fo Function that runs when the objects collide (called once)
      * @param ff Function that runs when the objects separate (called once)
      */
-    enableCollisionsBetween(o1: GameObject, o2: GameObject, fo: Function, ff: Function) {
-        this.collisionMonitors.push([o1, o2, fo, ff, false]);
-        this.collisionMonitors.push([o2, o1, fo, ff, false]);
+    enableCollisionsBetween(o1: GameObject, o2: GameObject, fo: Function, ff: Function, options?: CollisionMonitorOptions) {
+        var objectsExist = true;
+        if (!this.objects.includes(o1) || !this.objects.includes(o2)) {
+            objectsExist = false;
+        }
+        if (!objectsExist) {
+            throw new Error(`One or more of the objects passed to enableCollisionsBetween do not exist in scene ${this.id}'s object list.
+Please make sure to add the objects to the scene before enabling collisions between them.`);
+        }
+        if (options && options.crossLayers) {
+            console.log(o1.layerID, o2.layerID)
+            this.collisionMonitors.push([o1, o2, fo, ff, false]);
+            this.collisionMonitors.push([o2, o1, fo, ff, false]);
+        } else {
+            if (o1.layerID == o2.layerID) {
+                this.collisionMonitors.push([o1, o2, fo, ff, false]);
+                this.collisionMonitors.push([o2, o1, fo, ff, false]);
+            }
+        }
     }
 
     /**
@@ -3090,16 +3108,42 @@ class Input {
                 let rect = activateOn.canvas.getBoundingClientRect();
                 let x = event.clientX - rect.left;
                 let y = event.clientY - rect.top;
+                var foundObjects: Array<GameObject> = []
+
                 activateOn.objects.forEach(object => {
                     var r = <Point>sumArrays([x, y], activateOn.cameraAngle);
                     if (checkCollision(object.polify(), [r])) {
-                        this.on(object);
-                        document.addEventListener("mouseup", (event) => {
-                            object.returnState();
-                        })
+                        foundObjects.push(object);
                     }
                 })
-            })
+                if (foundObjects.length > 0) {
+                    var topObject = foundObjects[0];
+                    var layerIDs = activateOn.layers.map((layer: Layer) => layer.id);
+                    foundObjects.forEach(object => {
+                        if (layerIDs.indexOf(object.layerID) > layerIDs.indexOf(topObject.layerID)) {
+                            topObject = object;
+                        }
+                    })
+                    this.on({
+                        gameObject: topObject,
+                        realX: x,
+                        realY: y,
+                        x: x + activateOn.cameraAngle[0],
+                        y: y + activateOn.cameraAngle[1]
+                    });
+                    document.addEventListener("mouseup", (event) => {
+                        topObject.returnState();
+                    })
+                } else {
+                    this.on({
+                        gameObject: null,
+                        realX: x,
+                        realY: y,
+                        x: x + activateOn.cameraAngle[0],
+                        y: y + activateOn.cameraAngle[1]
+                    });
+                }
+            });
         } else {
             document.addEventListener("keydown", (e) => {
                 if (this.active) {
