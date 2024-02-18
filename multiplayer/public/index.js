@@ -10,7 +10,9 @@ const playerClient = new ANVIL.PlayerClient({
 });
 
 playerClient.emit("send_username", prompt("What is your username?"));
-
+setTimeout(()=>{
+    console.log(playerClient)
+},500);
 new ANVIL.MultiPlayerClientInput("w",playerClient);
 new ANVIL.MultiPlayerClientInput("a",playerClient);
 new ANVIL.MultiPlayerClientInput("s",playerClient);

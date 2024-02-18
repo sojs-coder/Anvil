@@ -1,23 +1,18 @@
-var { MultiPlayerServer, MultiPlayerSceneManager, MultiPlayerInputHandler, MultiPlayerSceneManager, Scene, Polygon, ServerInputHandler, Light } = require("./index.js");
+var { MultiPlayerServer, MultiPlayerSceneManager, MultiPlayerInputHandler, MultiPlayerSceneManager, Scene, Polygon, ServerInputHandler, Light } = require("../index.js");
 const http = require('http');
 const express = require("express");
 
 
 const app = express();
-app.use(express.static('build'));
-app.use(express.static('multiplayer/public'));
+app.use(express.static(__dirname+'/../build'));
+app.use(express.static(__dirname + "/public"));
 app.get("/", (req, res) => {
-    res.sendFile(__dirname + "/multiplayer/index.html");
+    res.sendFile(__dirname + "/index.html");
 });
 const server = http.createServer(app);
 
 
-const scene = new Scene({
-    lighting: true,
-    lightOptions: {
-        ambient: 0.2
-    }
-})
+const scene = new Scene()
 
 const multiplayerSever = new MultiPlayerServer({
 
@@ -52,12 +47,10 @@ const multiplayerSever = new MultiPlayerServer({
             points: [[0,0],[100,0],[100,100],[0,100]],
             backgroundColor: "red",
         });
-        var light = new Light([0,0],150, 0.8, [255,255,255]);
-        light.pin(gameObject);
-        scene.addLight(light);
         return new Promise((resolve, reject) => {
             socket.on("send_username", (username) => {
-                console.log("got username", username)
+                console.log("got username", username);
+                console.log(gameObject)
                 resolve([gameObject, username])
             });
         })

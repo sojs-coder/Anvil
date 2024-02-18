@@ -12398,6 +12398,35 @@ var DirectionalLight = /** @class */ (function (_super) {
     };
     return DirectionalLight;
 }(Light));
+/**
+ * @class Layer
+ * @classdesc Layer class, used for creating layers in the scene. Layers are independent of each other, and can have their own physics engines, objects, etc. Like multiple scenes within a single scene, drawn on top of each other.
+ * @property {Array<GameObject>} objects - Objects in the layer
+ * @property {boolean} physics - Whether or not the layer has physics enabled
+ * @property {String} id - Unique ID of the layer
+ * @property {any} Engine - Matter.js Engine
+ * @property {any} Bodies - Matter.js Bodies
+ * @property {any} Composite - Matter.js Composite
+ * @property {any} engine - Matter.js engine instance
+ * @property {boolean} boundsActive - Whether or not the bounds are active
+ * @property {Array<number>} bounds - Bounds of the layer
+ * @property {Vec2} parallax - How the layer processes camrea position. [1, 1] by default. [0, 0] would mean the layer is fixed to the camera, [1, 1] would mean the layer moves with the camera, [2, 2] would mean the layer moves at twice the speed of the camera, etc.
+ * @property {number} lastPhysicsUpdate - Last time the physics were updated in the layer
+ *
+ * @example
+ * ```js
+ *  const background = new Layer({
+ *      parallax: [0.75, .75]
+ *  });
+ *  background.addObject(...);
+ *  const foreground = new Layer();
+ *  foreground.addObject(...);
+ *  foreground.addObject(...);
+ *
+ *  const scene = new Scene({
+ *      layers: [background, foreground]
+ *  });
+ */
 var Layer = /** @class */ (function () {
     function Layer(options) {
         this.objects = options.objects || [];
@@ -12423,6 +12452,12 @@ var Layer = /** @class */ (function () {
             this.lastPhysicsUpdate = 0;
         }
     }
+    /**
+     * Adds an object to the layer
+     *
+     * @param object The object to add to the layer
+     * @param scene A reference to the parent scene
+     */
     Layer.prototype.addObject = function (object, scene) {
         object.scene = scene.id;
         object.layerID = this.id;
@@ -12443,9 +12478,18 @@ var Layer = /** @class */ (function () {
         }
         this.objects.push(object);
     };
+    /**
+     * Removes an object from the layer
+     *
+     * @param object The object to remove from the layer
+     */
     Layer.prototype.removeObject = function (object) {
         this.objects = this.objects.filter(function (obj) { return obj != object; });
     };
+    /**
+     * Draws the layer onto the provided drawing context. This is handled automatically with scene and scene managers
+     * @param options The DrawOptions for the layer
+     */
     Layer.prototype.draw = function (options) {
         for (var _i = 0, _a = this.objects; _i < _a.length; _i++) {
             var object = _a[_i];
@@ -12458,6 +12502,13 @@ var Layer = /** @class */ (function () {
             });
         }
     };
+    /**
+     * Sets the boundaries of a scene
+     * @param rightBound How far to the right objects can go
+     * @param bottomBound How far down objects can go
+     * @param canvas The canvas that the layer is drawn on
+     * @param activate Whether or not to activate the bounds. True by default. If the scene has physics enabled, the bounds will be activated no matter what.
+     */
     Layer.prototype.setBoundaries = function (rightBound, bottomBound, canvas, activate) {
         var _this = this;
         if (activate === void 0) { activate = true; }
@@ -12474,12 +12525,18 @@ var Layer = /** @class */ (function () {
             this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
         }
     };
+    /**
+     * Disables the bounds of the layer
+     */
     Layer.prototype.disableBounds = function () {
         this.boundsActive = false;
         this.objects.forEach(function (object) {
             object.disableBounds();
         });
     };
+    /**
+     * Activates the bounds of the layer
+     */
     Layer.prototype.activateBounds = function () {
         this.boundsActive = true;
         this.objects.forEach(function (object) {
@@ -12497,7 +12554,6 @@ var Layer = /** @class */ (function () {
  * @property {Array<number>} fpsBuffer - Buffer that holds the last FPS_BUFFER_SIZE frames rendering times (in ms)
  * @property {boolean} fpsMonitoringEnabled - Whether or not to monitor the fps
  * @property {number} lastFrameStamp - Last frame stamp
- * @property {number} lastPhysicsUpdate - Last physics update
  * @property {boolean} lighting - Whether or not lighting is enabled
  * @property {string} id - Unique ID of the scene
  * @property {Function} update - Update function of the scene (called every frame)
@@ -12524,6 +12580,7 @@ var Layer = /** @class */ (function () {
  * @property {boolean} lightsPreFormatted - Whether or not the lights are pre-formatted
  * @property {boolean} isClient - Whether or not the scene is running on the client
  * @property {Object} GPUSettings - GPU.js settings
+ * @property {Array<Layer>} layers - Layers of the scene
  *
  * @example
  * ```js
@@ -12555,6 +12612,12 @@ var Layer = /** @class */ (function () {
  *      }
  * });
  * ```
+ * @example
+ * ```js
+ * const scene = new Scene({
+ *      layers: [background, middle, foreground]
+ * });
+ * ```
  */
 var Scene = /** @class */ (function () {
     /**
@@ -12569,7 +12632,6 @@ var Scene = /** @class */ (function () {
         this.fpsBuffer = [];
         this.fpsMonitoringEnabled = options.fpsMonitoringEnabled || false;
         this.lastFrameStamp = performance.now();
-        this.lastPhysicsUpdate = performance.now();
         this.lighting = options.lighting || false;
         this.id = uid();
         this.update = options.update || function () { };
@@ -12811,6 +12873,12 @@ var Scene = /** @class */ (function () {
             layer.activateBounds();
         });
     };
+    /**
+     * Used to quickly set up an object as the player. Binds the camera to the object and sets up WASD movement (the object will move `movementSpeed` pixels every 10ms)
+     * (Only for sigle-player games)
+     * @param object GameObject to configure as player
+     * @param movementSpeed How quickly the player should move
+     */
     Scene.prototype.treatAsPlayer = function (object, movementSpeed) {
         var upInput = new Input("w", 10);
         var downInput = new Input("s", 10);
@@ -13061,6 +13129,7 @@ var Scene = /** @class */ (function () {
      * @param o2 Second object to check for collisions
      * @param fo Function that runs when the objects collide (called once)
      * @param ff Function that runs when the objects separate (called once)
+     * @param options Options for the collision monitor
      */
     Scene.prototype.enableCollisionsBetween = function (o1, o2, fo, ff, options) {
         var objectsExist = true;
@@ -13071,7 +13140,6 @@ var Scene = /** @class */ (function () {
             throw new Error("One or more of the objects passed to enableCollisionsBetween do not exist in scene ".concat(this.id, "'s object list.\nPlease make sure to add the objects to the scene before enabling collisions between them."));
         }
         if (options && options.crossLayers) {
-            console.log(o1.layerID, o2.layerID);
             this.collisionMonitors.push([o1, o2, fo, ff, false]);
             this.collisionMonitors.push([o2, o1, fo, ff, false]);
         }
@@ -14265,6 +14333,7 @@ var PlayerClient = /** @class */ (function () {
             return obj;
         });
         this.scene.objects = this.objects;
+        this.scene.layers[this.scene.layers.length - 1].objects = this.objects;
         this.scene.formattedLights = data.lights;
         this.scene.formattedDLights = data.dlights;
         this.scene.fog = data.fog;
@@ -14289,30 +14358,64 @@ var PlayerClient = /** @class */ (function () {
     };
     return PlayerClient;
 }());
+/**
+ * @class Sound
+ * @classdesc Sound class, used for playing sounds in a scene
+ * @property {HTMLAudioElement} sound A reference to the HTMLAudioElement that actually plays the sound
+ * @property {number} volume The volume that the sound plays at. Value 0-1 where 0 is muted and 1 is full volume. In order to get more volume from the sound, do `amplifyMedia(mySound.sound,x)` where X is the volume multiplier
+ * @property {boolean} loop True if the audio loops, false otherwise
+ * @property {number} playbackRate The rate of playback of the audio
+ * @property {boolean} ready Boolean if the audio is ready to play
+ * @property {boolean} wantsToPlay Boolean, true if the `play()` method was called before `ready` became true
+ * @property {Array<HTMLAudioElement>} audios List of all audio elements that are playing the sound
+ * @property {boolean} playing True if the sound is currently playing on the base source. False otherwise
+ */
 var Sound = /** @class */ (function () {
     function Sound(options) {
         var _this = this;
         this.sound = new Audio(options.source);
+        this.sound.setAttribute("data-uid", "ANVIL_SOUND_INSTANCE_" + uid());
         this.volume = options.volume || 1;
         this.loop = options.loop || false;
         this.playbackRate = options.playbackRate || 1;
+        this.audios = [];
         this.wantsToPlay = false;
         this.ready = false;
+        this.playing = false;
         this.sound.addEventListener("canplaythrough", function () {
             _this.ready = true;
             if (_this.wantsToPlay)
                 _this.play();
         });
+        this.sound.addEventListener("ended", function () {
+            _this.playing = false;
+        });
     }
     Sound.prototype.play = function () {
+        var _this = this;
         if (!this.ready) {
             this.wantsToPlay = true;
             return false;
         }
-        this.sound.volume = this.volume;
-        this.sound.loop = this.loop;
-        this.sound.playbackRate = this.playbackRate;
-        this.sound.play();
+        if (!this.playing) {
+            this.sound.volume = this.volume;
+            this.sound.loop = this.loop;
+            this.sound.playbackRate = this.playbackRate;
+            this.sound.play();
+            this.playing = true;
+        }
+        else {
+            var audio = new Audio(this.sound.src);
+            audio.volume = this.volume;
+            audio.setAttribute("data-uid", "ANVIL_SOUND_INSTANCE_" + uid());
+            audio.loop = this.loop;
+            audio.playbackRate = this.playbackRate;
+            audio.play();
+            this.audios.push(audio);
+            audio.addEventListener("ended", function () {
+                _this.audios = _this.audios.filter(function (a) { return a.getAttribute("data-uid") != audio.getAttribute("data-uid"); });
+            });
+        }
         return true;
     };
     Sound.prototype.setVolume = function (volume) {
@@ -14320,13 +14423,133 @@ var Sound = /** @class */ (function () {
         this.sound.volume = volume;
     };
     Sound.prototype.stop = function () {
+        this.playing = false;
         this.sound.pause();
     };
     return Sound;
 }());
+/**
+ * @class SoundEmitterPolygon
+ * @classdesc SoundEmitterPolygon class, used for emitting sounds from a polygon. This treats the polygon as a sort of speaker
+ * @property {Sound} sound The Sound instance that the SoundEmitterPolygon plays
+ * @property {GameObject} listener The GameObject that "listens" to the sound. Sound volume will be determined by distance to this game object
+ * @property {number} maxDistance The maximum distance that the sound can be heard from (if the listener is farther than this, the sound will not be heard)
+ * @property {number} minDistance The minimum distance that the sound can be heard from (if the listener is closer than this, the sound will be heard at full volume)
+ * @property {Function} fallOffFunction The function that determines the fall off of the sound. Takes in a distance and returns a volume (0-1). By default, the fall off is linear.
+ * @example
+ * ```js
+ *  const soundEmitter = new ANVIL.SoundEmitterPolygon({
+ *      points: [[0,0],[100,0],[100,100],[0,100]],
+ *      backgroundColor: "red",
+ *      soundOptions: {
+ *          listener: playerObject,
+ *          source: "path/to/sound.mp3",
+ *          loop: true,
+ *          volume: 1,
+ *          maxDistance: 1000,
+ *          minDistance: 0,
+ *          fallOffFunction: (distance) => {
+ *              var falloffstart = this.maxDistance - this.minDistance;
+ *              var dist = distance - this.minDistance;
+ *              var vol = 1 - (dist / falloffstart);
+ *              if (vol < 0) vol = 0;
+ *              return vol;
+ *          }
+ *      }
+ *  });
+ * ```
+ */
 var SoundEmitterPolygon = /** @class */ (function (_super) {
     __extends(SoundEmitterPolygon, _super);
     function SoundEmitterPolygon(options, soundOptions) {
+        var _this = _super.call(this, options) || this;
+        soundOptions.loop = (soundOptions.loop == undefined) ? true : soundOptions.loop;
+        _this.sound = new Sound(soundOptions);
+        _this.listener = soundOptions.listener;
+        _this.maxDistance = soundOptions.maxDistance || 1000;
+        _this.minDistance = soundOptions.minDistance || 0;
+        _this.fallOffFunction = soundOptions.fallOffFunction || (function (distance) {
+            var falloffstart = _this.maxDistance - _this.minDistance;
+            var dist = distance - _this.minDistance;
+            var vol = 1 - (dist / falloffstart);
+            if (vol < 0)
+                vol = 0;
+            return vol;
+        });
+        var startPlaying = (soundOptions.startPlaying == undefined) ? true : soundOptions.startPlaying;
+        if (startPlaying)
+            _this.sound.play();
+        return _this;
+    }
+    /**
+     * Updates the sound based on the listener's position, then calls the update method of the Polygon
+     * @returns {void}
+     */
+    SoundEmitterPolygon.prototype.update = function () {
+        var dist = distance(getCentroid(this.polify()), getCentroid(this.listener.polify()));
+        if (dist < this.minDistance) {
+            this.sound.setVolume(1);
+        }
+        else if (dist > this.maxDistance) {
+            this.sound.setVolume(0);
+        }
+        else {
+            this.sound.setVolume(this.fallOffFunction(dist));
+        }
+        _super.prototype.update.call(this);
+    };
+    /**
+     * Plays the sound
+     * @returns {void}
+     */
+    SoundEmitterPolygon.prototype.playSound = function () {
+        this.sound.play();
+    };
+    /**
+     * Stops the sound
+     * @returns {void}
+     */
+    SoundEmitterPolygon.prototype.stopSound = function () {
+        this.sound.stop();
+    };
+    return SoundEmitterPolygon;
+}(Polygon));
+/**
+ * @class
+ * @classdesc SoundEmitterSprite class, used for emitting sounds from a Sprite. This treats the Sprite as a sort of speaker
+ * @property {Sound} sound The Sound instance that the SoundEmitterPolygon plays
+ * @property {GameObject} listener The GameObject that "listens" to the sound. Sound volume will be determined by distance to this game object
+ * @property {number} maxDistance The maximum distance that the sound can be heard from (if the listener is farther than this, the sound will not be heard)
+ * @property {number} minDistance The minimum distance that the sound can be heard from (if the listener is closer than this, the sound will be heard at full volume)
+ * @property {Function} fallOffFunction The function that determines the fall off of the sound. Takes in a distance and returns a volume (0-1). By default, the fall off is linear.
+ * @example
+ * ```js
+ *  const soundEmitter = new ANVIL.SoundEmitterSprite({
+ *      coordinates: [0,0],
+ *      width: 100,
+ *      height: 100,
+ *      url: "path/to/sprite.png",
+ *      soundOptions: {
+ *          source: "path/to/sound.mp3",
+ *          listener: playerObject,
+ *          loop: true,
+ *          volume: 1,
+ *          maxDistance: 1000,
+ *          minDistance: 0,
+ *          fallOffFunction: (distance) => {
+ *              var falloffstart = this.maxDistance - this.minDistance;
+ *              var dist = distance - this.minDistance;
+ *              var vol = 1 - (dist / falloffstart);
+ *              if (vol < 0) vol = 0;
+ *              return vol;
+ *          }
+ *      }
+ *  });
+ * ```
+ */
+var SoundEmitterSprite = /** @class */ (function (_super) {
+    __extends(SoundEmitterSprite, _super);
+    function SoundEmitterSprite(options, soundOptions) {
         var _this = _super.call(this, options) || this;
         _this.sound = new Sound(soundOptions);
         _this.listener = soundOptions.listener;
@@ -14345,7 +14568,11 @@ var SoundEmitterPolygon = /** @class */ (function (_super) {
             _this.sound.play();
         return _this;
     }
-    SoundEmitterPolygon.prototype.update = function () {
+    /**
+     * Updates the sound based on the listener's position, then calls the update method of the Sprite
+     * @returns {void}
+     */
+    SoundEmitterSprite.prototype.update = function () {
         var dist = distance(getCentroid(this.polify()), getCentroid(this.listener.polify()));
         if (dist < this.minDistance) {
             this.sound.setVolume(1);
@@ -14356,23 +14583,31 @@ var SoundEmitterPolygon = /** @class */ (function (_super) {
         else {
             this.sound.setVolume(this.fallOffFunction(dist));
         }
-        console.log(this.sound);
         _super.prototype.update.call(this);
     };
-    SoundEmitterPolygon.prototype.playSound = function () {
+    /**
+     * Plays the sound
+     * @returns {void}
+     */
+    SoundEmitterSprite.prototype.playSound = function () {
         this.sound.play();
     };
-    SoundEmitterPolygon.prototype.stopSound = function () {
+    /**
+     * Stops the sound
+     * @returns {void}
+     */
+    SoundEmitterSprite.prototype.stopSound = function () {
         this.sound.stop();
     };
-    return SoundEmitterPolygon;
-}(Polygon));
+    return SoundEmitterSprite;
+}(Sprite));
 var ANVIL = {
     GameObject: GameObject,
     Polygon: Polygon,
     Sprite: Sprite,
     Sound: Sound,
     SoundEmitterPolygon: SoundEmitterPolygon,
+    SoundEmitterSprite: SoundEmitterSprite,
     Light: Light,
     DirectionalLight: DirectionalLight,
     Scene: Scene,

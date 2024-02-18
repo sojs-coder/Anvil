@@ -5,6 +5,81 @@ const { createCanvas } = require("canvas")
 const GPU = require("gpu.js");
 // Options interfaces
 
+
+/**
+ * Used for configuring properties of a SoundEmitter game object
+ * 
+ * @interface SoundEmitterOptions
+ * @extends {SoundOptions}
+ * @property {(distance: number) => number} [fallOffFunction] - A function that takes the distance from the listener and returns the volume of the sound. Default is a linear fall off function
+ * @property {number} [maxDistance=1000] - The maximum distance the sound can be heard from (if outside this range, the volume of the sound will be 0)
+ * @property {number} [minDistance=0] - The minimum distance the sound can be heard from (if inside this range, the volume of the sound will be 1)
+ * @property {boolean} [startPlaying=true] - Set to false to prevent the sound from playing when the scene starts (default is true)
+ * @property {GameObject} listener - The game object that will listen to the sound- eg: the player. Distance from the source is calculated from this object
+ */
+interface SoundEmitterOptions extends SoundOptions {
+    fallOffFunction?: (distance: number) => number;
+    maxDistance?: number;
+    minDistance?: number;
+    startPlaying?: boolean;
+    listener: GameObject;
+}
+/**
+ * For configuring Sounds in a scene
+ * 
+ * @interface SoundOptions
+ * @property {string} source - The source of the sound (eg: "sound.mp3")
+ * @property {number} [volume=1] - The volume of the sound, default is 1
+ * @property {boolean} [loop=false] - Set to true to loop the sound, default is false
+ * @property {number} [playbackRate=1] - The playback rate of the sound, default is 1
+ */
+interface SoundOptions {
+    source: string;
+    volume?: number;
+    loop?: boolean;
+    playbackRate?: number;
+}
+
+/**
+ * For configuring the properties of a Layer in a scene
+ * 
+ * @interface LayerOptions
+ * @property {boolean} [physics=false] - Set to true to enable physics, default is false
+ * @property {any} physicsOptions - Options passed to matter.js engine
+ * @property {Array<GameObject>} objects - Array of GameObjects in the layer
+ * @property {Array<number>} bounds - Set the bounds of the layer, by default bounds are not enabled
+ * @property {boolean} [boundsActive=false] - Set to true to enable bounds, default is false
+ * @property {Vec2} [parallax=[1,1]] - Set the parallax of the layer, by default parallax is [1, 1]
+ */
+interface LayerOptions {
+    physics?: boolean;
+    physicsOptions?: any;
+    objects?: Array<GameObject>;
+    boundsActive?: boolean;
+    bounds?: Array<number>;
+    parallax?: Vec2;
+}
+
+
+/**
+ * Returned from amplifyMedia
+ * 
+ * @interface AmplifiedMedia
+ * @property {AudioContext} context - An instance of AudioContext which was used to change the media’s volume.
+ * @property {MediaElementAudioSourceNode} source - A media source created from the AudioContext instance and the mediaElem. This may be useful if you desire to do more with the web audio API regarding this media. NOTE: Only one source node can be created from an element.
+ * @property {GainNode} gain - A media gain created from the AudioContext instance and the mediaElem. This may be useful if you desire to do more with the web audio API regarding this media.
+ * @property {HTMLMediaElement} media - A reference to the mediaElem passed into the function.
+ * @property {Function} getAmpLevel - A function which returns the multiplier (amplification level).
+ * @property {Function} amplify - A function which takes a multiplier (amplification level) and sets the media’s volume to that level.
+ */
+interface AmplifiedMedia {
+    context: AudioContext;
+    source: MediaElementAudioSourceNode;
+    gain: GainNode;
+    media: HTMLMediaElement;
+    amplify: (multiplier: number) => void;
+    getAmpLevel: () => number;
+}
 /**
  * Stack of data to be emitted when the socket is ready
  * 
@@ -219,7 +294,7 @@ interface MultiPlayerSceneManagerOptions {
  * @property {boolean} [lighting=false] - True to enable lighting, default is false
  * @property {lightingOptions} [lightOptions={}] - Options for lighting, default {} (empty object)
  * @property {GPUsettings} [GPUsettings={}] - Settings for GPU.js, default {} (empty object)
- * @property {boolean} [physics=false] - Set to true to enable physics (Uses matter.js under the hood), default is false
+ * @property {boolean} [physics=false] - Set to true to enable physics (Uses matter.js under the hood), default is false. If true and no layers are specified, a default layer will be created with physics enabled. Othewise, physics is handled by each individual layer.
  * @property {WorldPhysicsOptions} [physicsOptions={}] - Options passed to matter.js engine
  * @property {Function} [update] - Function to run on every tick, default is an empty function
  * @property {boolean} [clear=true] - Set to false to disable clearing the canvas on every tick, default is true
@@ -640,13 +715,7 @@ type CollisionMonitor = [GameObject, GameObject, Function, Function, boolean];
 type EventOnFunction = (event: Event | GameObject) => void;
 
 
-interface AmplifiedMedia {
-    context: AudioContext;
-    source: MediaElementAudioSourceNode;
-    gain: GainNode;
-    media: HTMLMediaElement;
-    getAmpLevel: () => number;
-}
+
 /**
  * Used to amplify the sound of a media element
  * https://cwestblog.com/2017/08/17/html5-getting-more-volume-from-the-web-audio-api/
@@ -2054,14 +2123,35 @@ class DirectionalLight extends Light {
     }
 }
 
-interface LayerOptions {
-    physics: boolean;
-    physicsOptions: any;
-    objects: Array<GameObject>;
-    boundsActive: boolean;
-    bounds: Array<number>;
-    parallax: Vec2;
-}
+/**
+ * @class Layer
+ * @classdesc Layer class, used for creating layers in the scene. Layers are independent of each other, and can have their own physics engines, objects, etc. Like multiple scenes within a single scene, drawn on top of each other.
+ * @property {Array<GameObject>} objects - Objects in the layer
+ * @property {boolean} physics - Whether or not the layer has physics enabled
+ * @property {String} id - Unique ID of the layer
+ * @property {any} Engine - Matter.js Engine
+ * @property {any} Bodies - Matter.js Bodies
+ * @property {any} Composite - Matter.js Composite
+ * @property {any} engine - Matter.js engine instance
+ * @property {boolean} boundsActive - Whether or not the bounds are active
+ * @property {Array<number>} bounds - Bounds of the layer
+ * @property {Vec2} parallax - How the layer processes camrea position. [1, 1] by default. [0, 0] would mean the layer is fixed to the camera, [1, 1] would mean the layer moves with the camera, [2, 2] would mean the layer moves at twice the speed of the camera, etc.
+ * @property {number} lastPhysicsUpdate - Last time the physics were updated in the layer
+ * 
+ * @example
+ * ```js
+ *  const background = new Layer({
+ *      parallax: [0.75, .75]
+ *  });
+ *  background.addObject(...);
+ *  const foreground = new Layer();
+ *  foreground.addObject(...);
+ *  foreground.addObject(...);
+ *  
+ *  const scene = new Scene({
+ *      layers: [background, foreground]
+ *  });
+ */
 class Layer {
     objects: Array<GameObject>;
     physics: boolean;
@@ -2098,6 +2188,12 @@ class Layer {
             this.lastPhysicsUpdate = 0;
         }
     }
+    /**
+     * Adds an object to the layer
+     * 
+     * @param object The object to add to the layer
+     * @param scene A reference to the parent scene
+     */
     addObject(object: GameObject, scene: Scene): void {
         object.scene = scene.id;
         object.layerID = this.id;
@@ -2117,9 +2213,19 @@ class Layer {
         }
         this.objects.push(object);
     }
+    /**
+     * Removes an object from the layer
+     * 
+     * @param object The object to remove from the layer
+     */
     removeObject(object: GameObject) {
         this.objects = this.objects.filter(obj => obj != object);
     }
+
+    /**
+     * Draws the layer onto the provided drawing context. This is handled automatically with scene and scene managers
+     * @param options The DrawOptions for the layer
+     */
     draw(options: DrawOptions) {
         for (var object of this.objects) {
             object.update();
@@ -2131,6 +2237,14 @@ class Layer {
             });
         }
     }
+
+    /**
+     * Sets the boundaries of a scene
+     * @param rightBound How far to the right objects can go
+     * @param bottomBound How far down objects can go
+     * @param canvas The canvas that the layer is drawn on
+     * @param activate Whether or not to activate the bounds. True by default. If the scene has physics enabled, the bounds will be activated no matter what.
+     */
     setBoundaries(rightBound: number, bottomBound: number, canvas: HTMLCanvasElement, activate: boolean = true): void {
         this.bounds = [rightBound || canvas.width, bottomBound || canvas.height];
         this.objects.forEach(object => {
@@ -2145,12 +2259,19 @@ class Layer {
             this.Composite.add(this.engine.world, [topBoundObj, bottomBoundObj, leftBoundObj, rightBoundObj]);
         }
     }
+
+    /**
+     * Disables the bounds of the layer
+     */
     disableBounds(): void {
         this.boundsActive = false;
         this.objects.forEach(object => {
             object.disableBounds();
         })
     }
+    /**
+     * Activates the bounds of the layer
+     */
     activateBounds(): void {
         this.boundsActive = true;
         this.objects.forEach(object => {
@@ -2168,7 +2289,6 @@ class Layer {
  * @property {Array<number>} fpsBuffer - Buffer that holds the last FPS_BUFFER_SIZE frames rendering times (in ms)
  * @property {boolean} fpsMonitoringEnabled - Whether or not to monitor the fps
  * @property {number} lastFrameStamp - Last frame stamp
- * @property {number} lastPhysicsUpdate - Last physics update
  * @property {boolean} lighting - Whether or not lighting is enabled
  * @property {string} id - Unique ID of the scene
  * @property {Function} update - Update function of the scene (called every frame)
@@ -2195,6 +2315,7 @@ class Layer {
  * @property {boolean} lightsPreFormatted - Whether or not the lights are pre-formatted
  * @property {boolean} isClient - Whether or not the scene is running on the client
  * @property {Object} GPUSettings - GPU.js settings
+ * @property {Array<Layer>} layers - Layers of the scene
  * 
  * @example
  * ```js
@@ -2226,6 +2347,12 @@ class Layer {
  *      } 
  * });
  * ```
+ * @example
+ * ```js
+ * const scene = new Scene({
+ *      layers: [background, middle, foreground]
+ * });
+ * ```
  */
 class Scene {
     objects: Array<GameObject>;
@@ -2234,7 +2361,6 @@ class Scene {
     fpsBuffer: Array<number>;
     fpsMonitoringEnabled: boolean;
     lastFrameStamp: number;
-    lastPhysicsUpdate: number;
     lighting: boolean;
     id: string;
     update: Function;
@@ -2273,7 +2399,6 @@ class Scene {
         this.fpsBuffer = [];
         this.fpsMonitoringEnabled = options.fpsMonitoringEnabled || false;
         this.lastFrameStamp = performance.now();
-        this.lastPhysicsUpdate = performance.now();
         this.lighting = options.lighting || false;
         this.id = uid();
         this.update = options.update || function () { };
@@ -2521,6 +2646,13 @@ class Scene {
             layer.activateBounds();
         })
     }
+
+    /**
+     * Used to quickly set up an object as the player. Binds the camera to the object and sets up WASD movement (the object will move `movementSpeed` pixels every 10ms)
+     * (Only for sigle-player games)
+     * @param object GameObject to configure as player
+     * @param movementSpeed How quickly the player should move
+     */
     treatAsPlayer(object: GameObject, movementSpeed: number): void {
         var upInput = new Input("w", 10);
         var downInput = new Input("s", 10);
@@ -2773,6 +2905,7 @@ class Scene {
      * @param o2 Second object to check for collisions
      * @param fo Function that runs when the objects collide (called once)
      * @param ff Function that runs when the objects separate (called once)
+     * @param options Options for the collision monitor
      */
     enableCollisionsBetween(o1: GameObject, o2: GameObject, fo: Function, ff: Function, options?: CollisionMonitorOptions) {
         var objectsExist = true;
@@ -2784,7 +2917,6 @@ class Scene {
 Please make sure to add the objects to the scene before enabling collisions between them.`);
         }
         if (options && options.crossLayers) {
-            console.log(o1.layerID, o2.layerID)
             this.collisionMonitors.push([o1, o2, fo, ff, false]);
             this.collisionMonitors.push([o2, o1, fo, ff, false]);
         } else {
@@ -4083,6 +4215,7 @@ class PlayerClient {
         });
 
         this.scene.objects = this.objects;
+        this.scene.layers[this.scene.layers.length - 1].objects = this.objects;
         this.scene.formattedLights = data.lights;
         this.scene.formattedDLights = data.dlights;
         this.scene.fog = data.fog;
@@ -4107,12 +4240,18 @@ class PlayerClient {
     }
 }
 
-interface SoundOptions {
-    source: string;
-    volume?: number;
-    loop?: boolean;
-    playbackRate?: number;
-}
+/**
+ * @class Sound
+ * @classdesc Sound class, used for playing sounds in a scene
+ * @property {HTMLAudioElement} sound A reference to the HTMLAudioElement that actually plays the sound
+ * @property {number} volume The volume that the sound plays at. Value 0-1 where 0 is muted and 1 is full volume. In order to get more volume from the sound, do `amplifyMedia(mySound.sound,x)` where X is the volume multiplier
+ * @property {boolean} loop True if the audio loops, false otherwise
+ * @property {number} playbackRate The rate of playback of the audio
+ * @property {boolean} ready Boolean if the audio is ready to play
+ * @property {boolean} wantsToPlay Boolean, true if the `play()` method was called before `ready` became true
+ * @property {Array<HTMLAudioElement>} audios List of all audio elements that are playing the sound
+ * @property {boolean} playing True if the sound is currently playing on the base source. False otherwise
+ */
 class Sound {
     sound: HTMLAudioElement;
     volume: number;
@@ -4120,17 +4259,25 @@ class Sound {
     playbackRate: number;
     ready: boolean;
     wantsToPlay: boolean;
+    audios: Array<HTMLAudioElement>;
+    playing: boolean;
     constructor(options: SoundOptions) {
         this.sound = new Audio(options.source);
+        this.sound.setAttribute("data-uid", "ANVIL_SOUND_INSTANCE_" + uid());
         this.volume = options.volume || 1;
         this.loop = options.loop || false;
         this.playbackRate = options.playbackRate || 1;
 
+        this.audios = [];
         this.wantsToPlay = false;
         this.ready = false;
+        this.playing = false;
         this.sound.addEventListener("canplaythrough", () => {
             this.ready = true;
             if (this.wantsToPlay) this.play()
+        });
+        this.sound.addEventListener("ended", () => {        
+            this.playing = false;
         });
     }
     play(): boolean {
@@ -4138,10 +4285,24 @@ class Sound {
             this.wantsToPlay = true;
             return false
         }
-        this.sound.volume = this.volume;
-        this.sound.loop = this.loop;
-        this.sound.playbackRate = this.playbackRate;
-        this.sound.play();
+        if (!this.playing) {
+            this.sound.volume = this.volume;
+            this.sound.loop = this.loop;
+            this.sound.playbackRate = this.playbackRate;
+            this.sound.play();
+            this.playing = true;
+        } else {
+            var audio = new Audio(this.sound.src);
+            audio.volume = this.volume;
+            audio.setAttribute("data-uid", "ANVIL_SOUND_INSTANCE_" + uid());
+            audio.loop = this.loop;
+            audio.playbackRate = this.playbackRate;
+            audio.play();
+            this.audios.push(audio);
+            audio.addEventListener("ended", () => {
+                this.audios = this.audios.filter(a => a.getAttribute("data-uid") != audio.getAttribute("data-uid"));
+            });
+        }
         return true;
     }
     setVolume(volume: number){
@@ -4149,22 +4310,48 @@ class Sound {
         this.sound.volume = volume;
     }
     stop() {
+        this.playing = false;
         this.sound.pause();
     }
 }
 
-interface SoundEmitterOptions extends SoundOptions {
-    fallOffFunction?: (distance: number) => number;
-    maxDistance?: number;
-    minDistance?: number;
-    startPlaying?: boolean;
-    listener: GameObject;
-}
+/**
+ * @class SoundEmitterPolygon
+ * @classdesc SoundEmitterPolygon class, used for emitting sounds from a polygon. This treats the polygon as a sort of speaker
+ * @property {Sound} sound The Sound instance that the SoundEmitterPolygon plays
+ * @property {GameObject} listener The GameObject that "listens" to the sound. Sound volume will be determined by distance to this game object
+ * @property {number} maxDistance The maximum distance that the sound can be heard from (if the listener is farther than this, the sound will not be heard)
+ * @property {number} minDistance The minimum distance that the sound can be heard from (if the listener is closer than this, the sound will be heard at full volume)
+ * @property {Function} fallOffFunction The function that determines the fall off of the sound. Takes in a distance and returns a volume (0-1). By default, the fall off is linear.
+ * @example
+ * ```js
+ *  const soundEmitter = new ANVIL.SoundEmitterPolygon({
+ *      points: [[0,0],[100,0],[100,100],[0,100]],
+ *      backgroundColor: "red",
+ *      soundOptions: {
+ *          listener: playerObject,
+ *          source: "path/to/sound.mp3",
+ *          loop: true,
+ *          volume: 1,
+ *          maxDistance: 1000,
+ *          minDistance: 0,
+ *          fallOffFunction: (distance) => {
+ *              var falloffstart = this.maxDistance - this.minDistance;
+ *              var dist = distance - this.minDistance;
+ *              var vol = 1 - (dist / falloffstart);
+ *              if (vol < 0) vol = 0;
+ *              return vol;
+ *          } 
+ *      }
+ *  });
+ * ```
+ */
 class SoundEmitterPolygon extends Polygon {
     sound: Sound;
     listener: GameObject
     constructor(options: PolygonOptions, soundOptions: SoundEmitterOptions) {
         super(options);
+        soundOptions.loop = (soundOptions.loop == undefined) ? true : soundOptions.loop;
         this.sound = new Sound(soundOptions);
         this.listener = soundOptions.listener;
 
@@ -4180,7 +4367,11 @@ class SoundEmitterPolygon extends Polygon {
         var startPlaying = (soundOptions.startPlaying == undefined) ? true : soundOptions.startPlaying;
         if (startPlaying) this.sound.play();
     }
-    update() {
+    /**
+     * Updates the sound based on the listener's position, then calls the update method of the Polygon
+     * @returns {void}
+     */
+    update(): void {
         var dist = distance(
             getCentroid(this.polify()),
             getCentroid(this.listener.polify())
@@ -4192,16 +4383,57 @@ class SoundEmitterPolygon extends Polygon {
         } else {
             this.sound.setVolume(this.fallOffFunction(dist));
         }
-        console.log(this.sound)
         super.update();
     }
-    playSound() {
+    /**
+     * Plays the sound
+     * @returns {void}
+     */
+    playSound(): void {
         this.sound.play();
     }
-    stopSound() {
+    /**
+     * Stops the sound
+     * @returns {void}
+     */
+    stopSound(): void {
         this.sound.stop();
     }
 }
+
+/**
+ * @class 
+ * @classdesc SoundEmitterSprite class, used for emitting sounds from a Sprite. This treats the Sprite as a sort of speaker
+ * @property {Sound} sound The Sound instance that the SoundEmitterPolygon plays
+ * @property {GameObject} listener The GameObject that "listens" to the sound. Sound volume will be determined by distance to this game object
+ * @property {number} maxDistance The maximum distance that the sound can be heard from (if the listener is farther than this, the sound will not be heard)
+ * @property {number} minDistance The minimum distance that the sound can be heard from (if the listener is closer than this, the sound will be heard at full volume)
+ * @property {Function} fallOffFunction The function that determines the fall off of the sound. Takes in a distance and returns a volume (0-1). By default, the fall off is linear.
+ * @example
+ * ```js
+ *  const soundEmitter = new ANVIL.SoundEmitterSprite({
+ *      coordinates: [0,0],
+ *      width: 100,
+ *      height: 100,
+ *      url: "path/to/sprite.png",
+ *      soundOptions: {
+ *          source: "path/to/sound.mp3",
+ *          listener: playerObject,
+ *          loop: true,
+ *          volume: 1,
+ *          maxDistance: 1000,
+ *          minDistance: 0,
+ *          fallOffFunction: (distance) => {
+ *              var falloffstart = this.maxDistance - this.minDistance;
+ *              var dist = distance - this.minDistance;
+ *              var vol = 1 - (dist / falloffstart);
+ *              if (vol < 0) vol = 0;
+ *              return vol;
+ *          } 
+ *      }
+ *  });
+ * ```
+ */
 class SoundEmitterSprite extends Sprite {
     sound: Sound;
     listener: GameObject
@@ -4222,7 +4454,12 @@ class SoundEmitterSprite extends Sprite {
         var startPlaying = (soundOptions.startPlaying == undefined) ? true : soundOptions.startPlaying;
         if (startPlaying) this.sound.play();
     }
-    update() {
+
+    /**
+     * Updates the sound based on the listener's position, then calls the update method of the Sprite
+     * @returns {void}
+     */
+    update(): void {
         var dist = distance(
             getCentroid(this.polify()),
             getCentroid(this.listener.polify())
@@ -4234,13 +4471,20 @@ class SoundEmitterSprite extends Sprite {
         } else {
             this.sound.setVolume(this.fallOffFunction(dist));
         }
-        console.log(this.sound)
         super.update();
     }
-    playSound() {
+    /**
+     * Plays the sound
+     * @returns {void}
+     */
+    playSound(): void {
         this.sound.play();
     }
-    stopSound() {
+    /**
+     * Stops the sound
+     * @returns {void}
+     */
+    stopSound(): void {
         this.sound.stop();
     }
 }
@@ -4344,6 +4588,11 @@ export {
     ServerInputHandlerOptions,
     PlayerOptions,
     MultiPlayerServerOptions,
+    AmplifiedMedia,
+    LayerOptions,
+    SoundOptions,
+    SoundEmitterOptions,
+    CollisionMonitorOptions,
 
     NotReadyStackEmitItem,
     Gravity,
