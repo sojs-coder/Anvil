@@ -2222,7 +2222,7 @@ class Layer {
      * @param object The object to remove from the layer
      */
     removeObject(object: GameObject) {
-        this.objects = this.objects.filter(obj => obj != object);
+        this.objects = this.objects.filter(obj => obj.id != object.id);
     }
 
     /**
@@ -2797,10 +2797,10 @@ class Scene {
             }
             layer.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
         }
-
-        this.collisionMonitors = this.collisionMonitors.map((monitor) => {
+        this.collisionMonitors.forEach((monitor) => {
             var [o1, o2, f, f2, active] = monitor;
-            if (o1.checkCollision(o2)) {
+
+            if (o1.checkCollision(o2) || o2.checkCollision(o1)) {
                 if (!active) {
                     active = true;
                     f();
@@ -2811,7 +2811,7 @@ class Scene {
                     f2();
                 }
             }
-            return [o1, o2, f, f2, active];
+            monitor[4] = active;
         });
         if (this.lighting && this.isClient) {
             this.diffuseLights(this.ambient, this.fog)
@@ -2868,9 +2868,10 @@ class Scene {
             this.cameraTo(this.cameraBind);
         }
 
-        this.collisionMonitors = this.collisionMonitors.map((monitor) => {
+        this.collisionMonitors.forEach((monitor) => {
             var [o1, o2, f, f2, active] = monitor;
-            if (o1.checkCollision(o2)) {
+
+            if (o1.checkCollision(o2) || o2.checkCollision(o1)) {
                 if (!active) {
                     active = true;
                     f();
@@ -2881,7 +2882,7 @@ class Scene {
                     f2();
                 }
             }
-            return [o1, o2, f, f2, active];
+            monitor[4] = active;
         });
         this.updateLights();
 
@@ -2892,14 +2893,18 @@ class Scene {
      * @param object GameObject to remove from the scene
      */
     removeObject(object: GameObject): void {
-        this.objects.filter(compare => {
+        this.collisionMonitors = this.collisionMonitors.filter(monitor=>{
+            return monitor[0].id != object.id && monitor[1].id != object.id;
+        })
+        this.objects = this.objects.filter(compare => {
             return !(compare.id == object.id);
         });
         this.layers.forEach(layer => {
             if (layer.id == object.layerID) {
                 layer.removeObject(object);
             }
-        })
+        });
+
     }
 
     /**
@@ -2923,11 +2928,9 @@ Please make sure to add the objects to the scene before enabling collisions betw
         }
         if (options && options.crossLayers) {
             this.collisionMonitors.push([o1, o2, fo, ff, false]);
-            this.collisionMonitors.push([o2, o1, fo, ff, false]);
         } else {
             if (o1.layerID == o2.layerID) {
                 this.collisionMonitors.push([o1, o2, fo, ff, false]);
-                this.collisionMonitors.push([o2, o1, fo, ff, false]);
             }
         }
     }

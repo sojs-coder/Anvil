@@ -12484,7 +12484,7 @@ var Layer = /** @class */ (function () {
      * @param object The object to remove from the layer
      */
     Layer.prototype.removeObject = function (object) {
-        this.objects = this.objects.filter(function (obj) { return obj != object; });
+        this.objects = this.objects.filter(function (obj) { return obj.id != object.id; });
     };
     /**
      * Draws the layer onto the provided drawing context. This is handled automatically with scene and scene managers
@@ -13022,9 +13022,9 @@ var Scene = /** @class */ (function () {
             }
             layer.draw({ ctx: this.ctx, camera: this.cameraAngle, canvas: this.canvas });
         }
-        this.collisionMonitors = this.collisionMonitors.map(function (monitor) {
+        this.collisionMonitors.forEach(function (monitor) {
             var o1 = monitor[0], o2 = monitor[1], f = monitor[2], f2 = monitor[3], active = monitor[4];
-            if (o1.checkCollision(o2)) {
+            if (o1.checkCollision(o2) || o2.checkCollision(o1)) {
                 if (!active) {
                     active = true;
                     f();
@@ -13036,7 +13036,7 @@ var Scene = /** @class */ (function () {
                     f2();
                 }
             }
-            return [o1, o2, f, f2, active];
+            monitor[4] = active;
         });
         if (this.lighting && this.isClient) {
             this.diffuseLights(this.ambient, this.fog);
@@ -13091,9 +13091,9 @@ var Scene = /** @class */ (function () {
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
         }
-        this.collisionMonitors = this.collisionMonitors.map(function (monitor) {
+        this.collisionMonitors.forEach(function (monitor) {
             var o1 = monitor[0], o2 = monitor[1], f = monitor[2], f2 = monitor[3], active = monitor[4];
-            if (o1.checkCollision(o2)) {
+            if (o1.checkCollision(o2) || o2.checkCollision(o1)) {
                 if (!active) {
                     active = true;
                     f();
@@ -13105,7 +13105,7 @@ var Scene = /** @class */ (function () {
                     f2();
                 }
             }
-            return [o1, o2, f, f2, active];
+            monitor[4] = active;
         });
         this.updateLights();
     };
@@ -13114,7 +13114,10 @@ var Scene = /** @class */ (function () {
      * @param object GameObject to remove from the scene
      */
     Scene.prototype.removeObject = function (object) {
-        this.objects.filter(function (compare) {
+        this.collisionMonitors = this.collisionMonitors.filter(function (monitor) {
+            return monitor[0].id != object.id && monitor[1].id != object.id;
+        });
+        this.objects = this.objects.filter(function (compare) {
             return !(compare.id == object.id);
         });
         this.layers.forEach(function (layer) {
@@ -13143,12 +13146,10 @@ var Scene = /** @class */ (function () {
         }
         if (options && options.crossLayers) {
             this.collisionMonitors.push([o1, o2, fo, ff, false]);
-            this.collisionMonitors.push([o2, o1, fo, ff, false]);
         }
         else {
             if (o1.layerID == o2.layerID) {
                 this.collisionMonitors.push([o1, o2, fo, ff, false]);
-                this.collisionMonitors.push([o2, o1, fo, ff, false]);
             }
         }
     };

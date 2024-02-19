@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc index.ts && node buildscript.js",
+    "build": "tsc index.ts && node buildscript.js && node removeGPU.js",
     "start": "npm run build && tsc index.ts && node removeGPU.js && node multiplayer.js"
   },
   "repository": {
