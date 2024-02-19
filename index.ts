@@ -301,6 +301,8 @@ interface MultiPlayerSceneManagerOptions {
  * @property {Vec2} [bounds] - Set the bounds of the scene, by default bounds are not enabled
  * @property {number} [FPS_BUFFER_SIZE=60] - Size of the buffer used to calculate FPS, default is 60
  * @property {GameObject} [bindCameraTo] - Bind the camera to a GameObject, by default camera is static
+ * @property {Array<Layer>} [layers] - Layers in the scene. Will be rendered in the order they are in the array
+ * @property {string} [backgroundColor="white"] - Background color of the scene
  * @example
  * ```js
  *  const options: SceneOptions = {
@@ -344,6 +346,7 @@ interface SceneOptions {
     FPS_BUFFER_SIZE?: number; // size of the buffer used to calculate FPS, default is 60
     bindCameraTo?: GameObject; // bind the camera to a GameObject, by default camera is static
     layers?: Array<Layer>; // layers in the scene
+    backgroundColor?: string; // background color of the scene
 }
 
 // Configuring lights in a scene
@@ -2316,7 +2319,7 @@ class Layer {
  * @property {boolean} isClient - Whether or not the scene is running on the client
  * @property {Object} GPUSettings - GPU.js settings
  * @property {Array<Layer>} layers - Layers of the scene
- * 
+ * @property {string} backgroundColor - Background color of the scene
  * @example
  * ```js
  * const scene = new Scene({
@@ -2388,6 +2391,7 @@ class Scene {
     isClient: boolean;
     GPUSettings: Object;
     layers: Array<Layer>;
+    backgroundColor: string;
     /**
      * 
      * @param options SceneOptions object passed to initialize the scene
@@ -2442,6 +2446,7 @@ class Scene {
         }
         this.readyToDraw = false;
         this.drawMode = "full";
+        this.backgroundColor = options.backgroundColor || "white";
     }
 
     /**
@@ -2653,7 +2658,7 @@ class Scene {
      * @param object GameObject to configure as player
      * @param movementSpeed How quickly the player should move
      */
-    treatAsPlayer(object: GameObject, movementSpeed: number): void {
+    treatAsPlayer(object: GameObject, movementSpeed: number = 2): void {
         var upInput = new Input("w", 10);
         var downInput = new Input("s", 10);
         var leftInput = new Input("a", 10);
@@ -2723,7 +2728,7 @@ class Scene {
     plainDraw(): void {
         this.check();
         if (!this.readyToDraw) return;
-        this.ctx.fillStyle = "white";
+        this.ctx.fillStyle = this.backgroundColor || "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
@@ -2773,7 +2778,7 @@ class Scene {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.update();
         if (this.clearScene) this.clear();
-        this.ctx.fillStyle = "white";
+        this.ctx.fillStyle = this.backgroundColor || "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);

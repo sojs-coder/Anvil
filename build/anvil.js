@@ -12581,7 +12581,7 @@ var Layer = /** @class */ (function () {
  * @property {boolean} isClient - Whether or not the scene is running on the client
  * @property {Object} GPUSettings - GPU.js settings
  * @property {Array<Layer>} layers - Layers of the scene
- *
+ * @property {string} backgroundColor - Background color of the scene
  * @example
  * ```js
  * const scene = new Scene({
@@ -12677,6 +12677,7 @@ var Scene = /** @class */ (function () {
         }
         this.readyToDraw = false;
         this.drawMode = "full";
+        this.backgroundColor = options.backgroundColor || "white";
     }
     /**
      * Initializes the scene, specifically the light rendering kernel
@@ -12880,6 +12881,7 @@ var Scene = /** @class */ (function () {
      * @param movementSpeed How quickly the player should move
      */
     Scene.prototype.treatAsPlayer = function (object, movementSpeed) {
+        if (movementSpeed === void 0) { movementSpeed = 2; }
         var upInput = new Input("w", 10);
         var downInput = new Input("s", 10);
         var leftInput = new Input("a", 10);
@@ -12949,7 +12951,7 @@ var Scene = /** @class */ (function () {
         this.check();
         if (!this.readyToDraw)
             return;
-        this.ctx.fillStyle = "white";
+        this.ctx.fillStyle = this.backgroundColor || "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
@@ -13000,7 +13002,7 @@ var Scene = /** @class */ (function () {
         this.update();
         if (this.clearScene)
             this.clear();
-        this.ctx.fillStyle = "white";
+        this.ctx.fillStyle = this.backgroundColor || "white";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.cameraBind) {
             this.cameraTo(this.cameraBind);
