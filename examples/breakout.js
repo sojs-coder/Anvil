@@ -6,6 +6,8 @@ const {
 // create a new scene with a black background and an update function
 const scene = new Scene({
     backgroundColor: 'black',
+    bounds: [800, 500],
+    boundsActive: true,
     update
 });
 

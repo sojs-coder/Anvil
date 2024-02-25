@@ -71,7 +71,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.amplifyMedia = exports.checkCollision = exports.checkSquareCollision = exports.uid = exports.multArrays = exports.sumArrays = exports.getBoundingBox = exports.distance = exports.isSquare = exports.findTopLeftMostPoint = exports.calculateFPS = exports.getCentroid = exports.instanceOfDirectionalLight = exports.isConvex = exports.ServerInputHandler = exports.MultiPlayerInputHandler = exports.MultiPlayerClientInput = exports.Input = exports.PlayerClient = exports.MultiPlayerServer = exports.Player = exports.MultiPlayerSceneManager = exports.SceneManager = exports.Layer = exports.Scene = exports.DirectionalLight = exports.Light = exports.SoundEmitterSprite = exports.SoundEmitterPolygon = exports.Sound = exports.Sprite = exports.Polygon = exports.GameObject = void 0;
+exports.amplifyMedia = exports.checkCollision = exports.checkSquareCollision = exports.uid = exports.multArrays = exports.sumArrays = exports.getBoundingBox = exports.distance = exports.isSquare = exports.findTopLeftMostPoint = exports.calculateFPS = exports.getCentroid = exports.instanceOfDirectionalLight = exports.isConvex = exports.ServerInputHandler = exports.MultiPlayerInputHandler = exports.MultiPlayerClientInput = exports.Input = exports.PlayerClient = exports.MultiPlayerServer = exports.Player = exports.MultiPlayerSceneManager = exports.SceneManager = exports.Layer = exports.Scene = exports.DirectionalLight = exports.Light = exports.SoundEmitterSprite = exports.SoundEmitterPolygon = exports.Sound = exports.Text = exports.Sprite = exports.Polygon = exports.GameObject = void 0;
 // 
 var Matter = require("matter-js");
 var createCanvas = require("canvas").createCanvas;
@@ -774,20 +774,6 @@ var GameObject = /** @class */ (function () {
         return true;
     };
     /**
-     * Gets the width of the object.
-     * @returns The width of the object. Useful for polygons, as polygons do not have a reliable width property
-     */
-    GameObject.prototype.getWidth = function () {
-        return 0;
-    };
-    /**
-     * Gets the height of the object.
-     * @returns The height of the object. Useful for polygons, as polygons do not have a reliable height property
-     */
-    GameObject.prototype.getHeight = function () {
-        return 0;
-    };
-    /**
      * Top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending)
      * @param vector Vector to move the object by
      * @param continueAfterPhysics If set to false, the object will not move if physics are not enabled. If true, the object will move if physics are not enabled. True by defualt
@@ -880,6 +866,11 @@ var GameObject = /** @class */ (function () {
      * Does nothing
      */
     GameObject.prototype.update = function () {
+    };
+    GameObject.prototype.initialize = function (scene) {
+    };
+    GameObject.prototype.moveTo = function (point) {
+        this.coordinates = point;
     };
     return GameObject;
 }());
@@ -1050,6 +1041,15 @@ var Polygon = /** @class */ (function (_super) {
         this.coordinates = findTopLeftMostPoint(this.points);
         return moved;
     };
+    Polygon.prototype.moveTo = function (point) {
+        var newPoints = [];
+        for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
+            var p = _a[_i];
+            newPoints.push(sumArrays(p, sumArrays(point, multArrays([-1, -1], this.coordinates))));
+        }
+        this.points = newPoints;
+        return true;
+    };
     return Polygon;
 }(GameObject));
 exports.Polygon = Polygon;
@@ -1198,6 +1198,65 @@ var Sprite = /** @class */ (function (_super) {
     return Sprite;
 }(GameObject));
 exports.Sprite = Sprite;
+var Text = /** @class */ (function (_super) {
+    __extends(Text, _super);
+    function Text(options) {
+        var _this = _super.call(this, options) || this;
+        _this.text = options.text;
+        _this.coordinates = options.coordinates;
+        _this.font = options.font;
+        _this.fontSize = options.fontSize;
+        _this.color = options.color;
+        _this.ctx = null;
+        _this.type = "text";
+        return _this;
+    }
+    ;
+    Text.prototype.draw = function (options) {
+        if (!options.ctx)
+            return;
+        this.ctx = options.ctx;
+        this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
+        this.ctx.fillStyle = this.color;
+        this.ctx.fillText(this.text, this.coordinates[0] - options.camera[0], this.coordinates[1] - options.camera[1]);
+    };
+    Text.prototype.getWidth = function (scene) {
+        if (!scene && !this.ctx)
+            return 0;
+        if (scene) {
+            if (!scene.readyToDraw)
+                return 0;
+            this.ctx = scene.ctx;
+        }
+        if (!this.ctx)
+            return 0;
+        this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
+        return this.ctx.measureText(this.text).width;
+    };
+    Text.prototype.getHeight = function (scene) {
+        if (!scene && !this.ctx)
+            return 0;
+        if (scene) {
+            if (!scene.readyToDraw)
+                return 0;
+            this.ctx = scene.ctx;
+        }
+        if (!this.ctx)
+            return 0;
+        this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
+        return this.ctx.measureText(this.text).actualBoundingBoxAscent;
+    };
+    Text.prototype.polify = function () {
+        return [
+            [this.coordinates[0], this.coordinates[1]],
+            [this.coordinates[0] + this.getWidth(null), this.coordinates[1]],
+            [this.coordinates[0] + this.getWidth(null), this.coordinates[1] + this.getHeight(null)],
+            [this.coordinates[0], this.coordinates[1] + this.getHeight(null)]
+        ];
+    };
+    return Text;
+}(GameObject));
+exports.Text = Text;
 /**
  * @class Light
  * @classdesc Light class, used for creating lights in the scene
@@ -1464,6 +1523,9 @@ var Layer = /** @class */ (function () {
             }
             this.Composite.add(this.engine.world, [object.body]);
         }
+        if (this.boundsActive)
+            object.setBounds(this.bounds);
+        object.initialize(scene);
         this.objects.push(object);
     };
     /**
@@ -1649,6 +1711,9 @@ var Scene = /** @class */ (function () {
             });
             this.layers.push(layer1);
             // layers are linear... first layer is layer 0, second is layer 1, etc.
+        }
+        if (this.boundsActive) {
+            this.setBoundaries(this.bounds[0], this.bounds[1], this.boundsActive);
         }
         if (this.lighting) {
             this.fog = (options.lightOptions) ? options.lightOptions.fog || 1.3 : 1.3;
@@ -2054,9 +2119,13 @@ var Scene = /** @class */ (function () {
      * Updates all of the objects, lights, physics, and collision monitors in the scene
      */
     Scene.prototype.updateAll = function () {
+        this.check();
         if (!this.readyToDraw)
             return;
         this.update();
+        if (this.cameraBind) {
+            this.cameraTo(this.cameraBind);
+        }
         for (var _i = 0, _a = this.layers; _i < _a.length; _i++) {
             var layer = _a[_i];
             if (layer.physics) {
@@ -2076,9 +2145,6 @@ var Scene = /** @class */ (function () {
                     object.update();
                 });
             }
-        }
-        if (this.cameraBind) {
-            this.cameraTo(this.cameraBind);
         }
         this.collisionMonitors.forEach(function (monitor) {
             var o1 = monitor[0], o2 = monitor[1], f = monitor[2], f2 = monitor[3], active = monitor[4];
@@ -3611,6 +3677,7 @@ var ANVIL = {
     GameObject: GameObject,
     Polygon: Polygon,
     Sprite: Sprite,
+    Text: Text,
     Sound: Sound,
     SoundEmitterPolygon: SoundEmitterPolygon,
     SoundEmitterSprite: SoundEmitterSprite,

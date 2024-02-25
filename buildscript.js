@@ -2,7 +2,7 @@ const fs = require('fs');
 
 const order = ['/deps/matter.js','/deps/gpu.js','/index.js'];
 
-const comments = ['// Path: matter.js','// Path: gpu.js','// Path: anvil.js'];
+const comments = [`/* This is the full build for anvil.js, including lighting and physics engines All liscened under MIT. */ \n// Path: matter.js`,'// Path: gpu.js','// Path: anvil.js'];
 
 
 const requireExp = /require\(['"].+["']\)/g;

@@ -7,6 +7,22 @@ const GPU = require("gpu.js");
 
 
 /**
+ * @interface TextOptions
+ * @property {string} text - The text to render
+ * @property {Point} coordinates - The coordinates of the text
+ * @property {string} font - The font of the text, eg: "Arial", "Times New Roman", etc.
+ * @property {number} fontSize - The font size of the text, in pixels
+ * @property {string} color - The color of the text, in hex or rgb format
+ * @property {string} type - The type of the object, "text"
+ */
+interface TextOptions extends GameObjectOptions {
+    text: string;
+    coordinates: Point;
+    font: string;
+    color: string;
+    fontSize: number;
+}
+/**
  * Used for configuring properties of a SoundEmitter game object
  * 
  * @interface SoundEmitterOptions
@@ -1482,21 +1498,6 @@ class GameObject {
         return true;
     }
 
-    /**
-     * Gets the width of the object.
-     * @returns The width of the object. Useful for polygons, as polygons do not have a reliable width property
-     */
-    getWidth(): number {
-        return 0;
-    }
-
-    /**
-     * Gets the height of the object.
-     * @returns The height of the object. Useful for polygons, as polygons do not have a reliable height property
-     */
-    getHeight(): number {
-        return 0;
-    }
 
     /**
      * Top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending)
@@ -1588,6 +1589,12 @@ class GameObject {
      */
     update() {
 
+    }
+
+    initialize(scene: Scene) {
+    }
+    moveTo(point: Point) {
+        this.coordinates = point;
     }
 }
 
@@ -1767,6 +1774,23 @@ class Polygon extends GameObject {
 
         return moved;
     }
+
+    /**
+     * Moves the polygon to a point as apposed to moving it by a vector
+     * 
+     * @param point The point in space to move the polygon to
+     * @returns True
+     */
+    moveTo(point: Point){
+        var newPoints: Point[] = [];
+
+        for (var p of this.points) {
+            newPoints.push(<Point>sumArrays(p, <Vec2>sumArrays(point, <Vec2>multArrays([-1, -1], this.coordinates))));
+        }
+        this.points = newPoints;
+        
+        return true;
+    }
 }
 
 /**
@@ -1923,6 +1947,104 @@ class Sprite extends GameObject {
     }
 }
 
+
+
+/**
+ * @class Text
+ * @classdesc Text class, used for rendering text
+ * @property {string} text - The text to render
+ * @property {Point} coordinates - The coordinates of the text
+ * @property {string} font - The font of the text, eg: "Arial", "Times New Roman", etc.
+ * @property {number} fontSize - The font size of the text, in pixels
+ * @property {string} color - The color of the text, in hex or rgb format
+ * @property {string} type - The type of the object, "text"
+ * @example
+ * ```js
+ *  const text = new Text({
+ *      text: "Hello, World!",
+ *      coordinates: [0, 0],
+ *      font: "Arial",
+ *      fontSize: 20,
+ *      color: "black"
+ *  });
+ */
+class Text extends GameObject{
+    text: string;
+    coordinates: Point;
+    font: string;
+    fontSize: number;
+    color: string;
+    type: string;
+    ctx: CanvasRenderingContext2D | null;
+    constructor(options: TextOptions){
+        super(options)
+        this.text = options.text;
+        this.coordinates = options.coordinates;
+        this.font = options.font;
+        this.fontSize = options.fontSize;
+        this.color = options.color;
+        this.ctx = null;
+        this.type = "text";
+    };
+
+    /**
+     * Draws the text onto the provided drawing context. This is handled automatically with scene and scene managers
+     * 
+     * @param options DrawOptions for the object
+     */
+    draw(options: DrawOptions): void{
+        if(!options.ctx) return;
+        this.ctx = options.ctx;
+        this.ctx.font = `${this.fontSize}px ${this.font}`
+        this.ctx.fillStyle = this.color;
+        this.ctx.fillText(this.text, this.coordinates[0] - options.camera[0], this.coordinates[1] - options.camera[1]);
+    }
+    /**
+     * Gets the width, as rendered, of the text
+     * 
+     * @param scene The scene that the text is in
+     * @returns The width of the text, in pixels
+     */
+    getWidth(scene: Scene | null){
+        if(!scene && !this.ctx) return 0;
+        if(scene){
+            if(!scene.readyToDraw) return 0;
+            this.ctx = scene.ctx;
+        }
+        if(!this.ctx) return 0;
+        this.ctx.font = `${this.fontSize}px ${this.font}`
+        return this.ctx.measureText(this.text).width;
+    }
+    /**
+     * Gets the height, as rendered, of the text
+     * 
+     * @param scene The scene that the text is in
+     * @returns The height of the text, in pixels
+     */
+    getHeight(scene: Scene | null){
+        if(!scene && !this.ctx) return 0;
+        if(scene){
+            if(!scene.readyToDraw) return 0;
+            this.ctx = scene.ctx;
+        }
+        if(!this.ctx) return 0;
+        this.ctx.font = `${this.fontSize}px ${this.font}`
+        return this.ctx.measureText(this.text).actualBoundingBoxAscent;
+    }
+    /**
+     * Gets a list of points representing the bounding box of the text
+     * 
+     * @returns A list of points representing the bounding box of the text
+     */
+    polify(): Vec2[]{
+        return [
+            [this.coordinates[0], this.coordinates[1]],
+            [this.coordinates[0] + this.getWidth(null), this.coordinates[1]],
+            [this.coordinates[0] + this.getWidth(null), this.coordinates[1] + this.getHeight(null)],
+            [this.coordinates[0], this.coordinates[1] + this.getHeight(null)]
+        ]
+    }
+}
 
 /**
  * @class Light
@@ -2214,6 +2336,8 @@ class Layer {
             }
             this.Composite.add(this.engine.world, [object.body]);
         }
+        if(this.boundsActive) object.setBounds(this.bounds);
+        object.initialize(scene);
         this.objects.push(object);
     }
     /**
@@ -2432,6 +2556,9 @@ class Scene {
             this.layers.push(layer1);
             // layers are linear... first layer is layer 0, second is layer 1, etc.
         }
+        if(this.boundsActive) {
+            this.setBoundaries(this.bounds[0], this.bounds[1], this.boundsActive);
+        }
         if (this.lighting) {
             this.fog = (options.lightOptions) ? options.lightOptions.fog || 1.3 : 1.3;
             this.ambient = (options.lightOptions) ? options.lightOptions.ambient || 0.2 : 0.2;
@@ -2632,7 +2759,6 @@ class Scene {
         this.layers.forEach(layer => {
             layer.setBoundaries(rightBound, bottomBound, this.canvas, activate);
         })
-
     }
 
     /**
@@ -2844,8 +2970,12 @@ class Scene {
      * Updates all of the objects, lights, physics, and collision monitors in the scene
      */
     updateAll(): void {
+        this.check();
         if (!this.readyToDraw) return;
         this.update();
+        if (this.cameraBind) {
+            this.cameraTo(this.cameraBind);
+        }
         for (const layer of this.layers) {
             if (layer.physics) {
                 var physicsNow = performance.now();
@@ -2864,10 +2994,6 @@ class Scene {
                 })
             }
         }
-        if (this.cameraBind) {
-            this.cameraTo(this.cameraBind);
-        }
-
         this.collisionMonitors.forEach((monitor) => {
             var [o1, o2, f, f2, active] = monitor;
 
@@ -4501,6 +4627,7 @@ var ANVIL = {
     GameObject,
     Polygon,
     Sprite,
+    Text,
 
     Sound,
     SoundEmitterPolygon,
@@ -4542,6 +4669,7 @@ export {
     GameObject,
     Polygon,
     Sprite,
+    Text,
 
     Sound,
     SoundEmitterPolygon,

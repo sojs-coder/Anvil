@@ -1,3 +1,4 @@
+/* This is the full build for anvil.js, including lighting and physics engines All liscened under MIT. */ 
 // Path: matter.js
 /*!
  * matter-js 0.19.0 by @liabru
@@ -11791,20 +11792,6 @@ var GameObject = /** @class */ (function () {
         return true;
     };
     /**
-     * Gets the width of the object.
-     * @returns The width of the object. Useful for polygons, as polygons do not have a reliable width property
-     */
-    GameObject.prototype.getWidth = function () {
-        return 0;
-    };
-    /**
-     * Gets the height of the object.
-     * @returns The height of the object. Useful for polygons, as polygons do not have a reliable height property
-     */
-    GameObject.prototype.getHeight = function () {
-        return 0;
-    };
-    /**
      * Top level move function (works with both physics enabled and disabled)... needs helper functions getWidth(), getHeight() to be defined. Recommended to re-write based on your use case (if extending)
      * @param vector Vector to move the object by
      * @param continueAfterPhysics If set to false, the object will not move if physics are not enabled. If true, the object will move if physics are not enabled. True by defualt
@@ -11897,6 +11884,11 @@ var GameObject = /** @class */ (function () {
      * Does nothing
      */
     GameObject.prototype.update = function () {
+    };
+    GameObject.prototype.initialize = function (scene) {
+    };
+    GameObject.prototype.moveTo = function (point) {
+        this.coordinates = point;
     };
     return GameObject;
 }());
@@ -12066,6 +12058,15 @@ var Polygon = /** @class */ (function (_super) {
         this.coordinates = findTopLeftMostPoint(this.points);
         return moved;
     };
+    Polygon.prototype.moveTo = function (point) {
+        var newPoints = [];
+        for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
+            var p = _a[_i];
+            newPoints.push(sumArrays(p, sumArrays(point, multArrays([-1, -1], this.coordinates))));
+        }
+        this.points = newPoints;
+        return true;
+    };
     return Polygon;
 }(GameObject));
 /**
@@ -12211,6 +12212,64 @@ var Sprite = /** @class */ (function (_super) {
         return newPoints;
     };
     return Sprite;
+}(GameObject));
+var Text = /** @class */ (function (_super) {
+    __extends(Text, _super);
+    function Text(options) {
+        var _this = _super.call(this, options) || this;
+        _this.text = options.text;
+        _this.coordinates = options.coordinates;
+        _this.font = options.font;
+        _this.fontSize = options.fontSize;
+        _this.color = options.color;
+        _this.ctx = null;
+        _this.type = "text";
+        return _this;
+    }
+    ;
+    Text.prototype.draw = function (options) {
+        if (!options.ctx)
+            return;
+        this.ctx = options.ctx;
+        this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
+        this.ctx.fillStyle = this.color;
+        this.ctx.fillText(this.text, this.coordinates[0] - options.camera[0], this.coordinates[1] - options.camera[1]);
+    };
+    Text.prototype.getWidth = function (scene) {
+        if (!scene && !this.ctx)
+            return 0;
+        if (scene) {
+            if (!scene.readyToDraw)
+                return 0;
+            this.ctx = scene.ctx;
+        }
+        if (!this.ctx)
+            return 0;
+        this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
+        return this.ctx.measureText(this.text).width;
+    };
+    Text.prototype.getHeight = function (scene) {
+        if (!scene && !this.ctx)
+            return 0;
+        if (scene) {
+            if (!scene.readyToDraw)
+                return 0;
+            this.ctx = scene.ctx;
+        }
+        if (!this.ctx)
+            return 0;
+        this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
+        return this.ctx.measureText(this.text).actualBoundingBoxAscent;
+    };
+    Text.prototype.polify = function () {
+        return [
+            [this.coordinates[0], this.coordinates[1]],
+            [this.coordinates[0] + this.getWidth(null), this.coordinates[1]],
+            [this.coordinates[0] + this.getWidth(null), this.coordinates[1] + this.getHeight(null)],
+            [this.coordinates[0], this.coordinates[1] + this.getHeight(null)]
+        ];
+    };
+    return Text;
 }(GameObject));
 /**
  * @class Light
@@ -12476,6 +12535,9 @@ var Layer = /** @class */ (function () {
             }
             this.Composite.add(this.engine.world, [object.body]);
         }
+        if (this.boundsActive)
+            object.setBounds(this.bounds);
+        object.initialize(scene);
         this.objects.push(object);
     };
     /**
@@ -12660,6 +12722,9 @@ var Scene = /** @class */ (function () {
             });
             this.layers.push(layer1);
             // layers are linear... first layer is layer 0, second is layer 1, etc.
+        }
+        if (this.boundsActive) {
+            this.setBoundaries(this.bounds[0], this.bounds[1], this.boundsActive);
         }
         if (this.lighting) {
             this.fog = (options.lightOptions) ? options.lightOptions.fog || 1.3 : 1.3;
@@ -13065,9 +13130,13 @@ var Scene = /** @class */ (function () {
      * Updates all of the objects, lights, physics, and collision monitors in the scene
      */
     Scene.prototype.updateAll = function () {
+        this.check();
         if (!this.readyToDraw)
             return;
         this.update();
+        if (this.cameraBind) {
+            this.cameraTo(this.cameraBind);
+        }
         for (var _i = 0, _a = this.layers; _i < _a.length; _i++) {
             var layer = _a[_i];
             if (layer.physics) {
@@ -13087,9 +13156,6 @@ var Scene = /** @class */ (function () {
                     object.update();
                 });
             }
-        }
-        if (this.cameraBind) {
-            this.cameraTo(this.cameraBind);
         }
         this.collisionMonitors.forEach(function (monitor) {
             var o1 = monitor[0], o2 = monitor[1], f = monitor[2], f2 = monitor[3], active = monitor[4];
@@ -14608,6 +14674,7 @@ var ANVIL = {
     GameObject: GameObject,
     Polygon: Polygon,
     Sprite: Sprite,
+    Text: Text,
     Sound: Sound,
     SoundEmitterPolygon: SoundEmitterPolygon,
     SoundEmitterSprite: SoundEmitterSprite,
