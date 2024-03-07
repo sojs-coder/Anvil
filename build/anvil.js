@@ -12058,6 +12058,12 @@ var Polygon = /** @class */ (function (_super) {
         this.coordinates = findTopLeftMostPoint(this.points);
         return moved;
     };
+    /**
+     * Moves the polygon to a point as apposed to moving it by a vector
+     *
+     * @param point The point in space to move the polygon to
+     * @returns True
+     */
     Polygon.prototype.moveTo = function (point) {
         var newPoints = [];
         for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
@@ -12126,7 +12132,7 @@ var Sprite = /** @class */ (function (_super) {
      */
     Sprite.prototype.reload = function () {
         var _this = this;
-        this.source.crossOrigin = "ananymous";
+        this.source.crossOrigin = "anonymous";
         this.source.src = this.image;
         this.source.onload = function () {
             _this.spriteLoaded = true;
@@ -12142,13 +12148,13 @@ var Sprite = /** @class */ (function (_super) {
             return;
         _super.prototype.draw.call(this, options);
         var ctx = options.ctx, camera = options.camera;
-        if (!this.physicsEnabled) {
+        if (!this.angle || this.angle == 0) {
             ctx.drawImage(this.source, this.coordinates[0] - camera[0], this.coordinates[1] - camera[1], this.width, this.height);
         }
         else {
-            var c = getCentroid(this.points);
+            var c = getCentroid(this.polify());
             var _a = [c[0] - camera[0], c[1] - camera[1]], x = _a[0], y = _a[1];
-            var rotation = this.body.angle;
+            var rotation = (this.body && this.body.angle) ? this.body.angle || this.angle || 0 : this.angle || 0;
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(rotation);
@@ -12213,6 +12219,89 @@ var Sprite = /** @class */ (function (_super) {
     };
     return Sprite;
 }(GameObject));
+var Particle = /** @class */ (function (_super) {
+    __extends(Particle, _super);
+    function Particle(options, childOpts) {
+        var _this = _super.call(this, options) || this;
+        _this.type = "particle_child";
+        _this.speed = childOpts.speed;
+        _this.life = childOpts.life;
+        _this.angle = childOpts.angle;
+        _this.spawnedAt = performance.now();
+        return _this;
+    }
+    Particle.prototype.update = function () {
+        this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
+    };
+    Particle.prototype.draw = function (options) {
+        _super.prototype.draw.call(this, options);
+    };
+    return Particle;
+}(Sprite));
+var Particles = /** @class */ (function (_super) {
+    __extends(Particles, _super);
+    function Particles(options) {
+        var _this = _super.call(this, options) || this;
+        _this.type = "particle";
+        _this.spread = options.spread;
+        _this.speed = options.speed;
+        _this.life = options.life;
+        _this.children = [];
+        _this.spawnRate = options.spawnRate;
+        _this.spawn();
+        return _this;
+    }
+    Particles.prototype.spawn = function () {
+        var _this = this;
+        var angle = Math.random() * this.spread - this.spread / 2;
+        console.log(this.coordinates);
+        var child = new Particle({
+            url: this.image,
+            coordinates: this.coordinates,
+            width: this.width,
+            height: this.height,
+        }, {
+            angle: angle,
+            speed: this.speed,
+            life: this.life
+        });
+        this.children.push(child);
+        setTimeout(function () {
+            _this.spawn();
+        }, this.spawnRate);
+    };
+    Particles.prototype.update = function () {
+        this.children = this.children.filter(function (child) {
+            return performance.now() - child.spawnedAt < child.life;
+        });
+    };
+    Particles.prototype.draw = function (drawOptions) {
+        this.children.forEach(function (child) {
+            child.update();
+            child.draw(drawOptions);
+        });
+    };
+    return Particles;
+}(Sprite));
+/**
+ * @class Text
+ * @classdesc Text class, used for rendering text
+ * @property {string} text - The text to render
+ * @property {Point} coordinates - The coordinates of the text
+ * @property {string} font - The font of the text, eg: "Arial", "Times New Roman", etc.
+ * @property {number} fontSize - The font size of the text, in pixels
+ * @property {string} color - The color of the text, in hex or rgb format
+ * @property {string} type - The type of the object, "text"
+ * @example
+ * ```js
+ *  const text = new Text({
+ *      text: "Hello, World!",
+ *      coordinates: [0, 0],
+ *      font: "Arial",
+ *      fontSize: 20,
+ *      color: "black"
+ *  });
+ */
 var Text = /** @class */ (function (_super) {
     __extends(Text, _super);
     function Text(options) {
@@ -12227,6 +12316,11 @@ var Text = /** @class */ (function (_super) {
         return _this;
     }
     ;
+    /**
+     * Draws the text onto the provided drawing context. This is handled automatically with scene and scene managers
+     *
+     * @param options DrawOptions for the object
+     */
     Text.prototype.draw = function (options) {
         if (!options.ctx)
             return;
@@ -12235,6 +12329,12 @@ var Text = /** @class */ (function (_super) {
         this.ctx.fillStyle = this.color;
         this.ctx.fillText(this.text, this.coordinates[0] - options.camera[0], this.coordinates[1] - options.camera[1]);
     };
+    /**
+     * Gets the width, as rendered, of the text
+     *
+     * @param scene The scene that the text is in
+     * @returns The width of the text, in pixels
+     */
     Text.prototype.getWidth = function (scene) {
         if (!scene && !this.ctx)
             return 0;
@@ -12248,6 +12348,12 @@ var Text = /** @class */ (function (_super) {
         this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
         return this.ctx.measureText(this.text).width;
     };
+    /**
+     * Gets the height, as rendered, of the text
+     *
+     * @param scene The scene that the text is in
+     * @returns The height of the text, in pixels
+     */
     Text.prototype.getHeight = function (scene) {
         if (!scene && !this.ctx)
             return 0;
@@ -12261,6 +12367,11 @@ var Text = /** @class */ (function (_super) {
         this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
         return this.ctx.measureText(this.text).actualBoundingBoxAscent;
     };
+    /**
+     * Gets a list of points representing the bounding box of the text
+     *
+     * @returns A list of points representing the bounding box of the text
+     */
     Text.prototype.polify = function () {
         return [
             [this.coordinates[0], this.coordinates[1]],
@@ -14674,6 +14785,8 @@ var ANVIL = {
     GameObject: GameObject,
     Polygon: Polygon,
     Sprite: Sprite,
+    Particle: Particle,
+    Particles: Particles,
     Text: Text,
     Sound: Sound,
     SoundEmitterPolygon: SoundEmitterPolygon,

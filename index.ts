@@ -1781,17 +1781,18 @@ class Polygon extends GameObject {
      * @param point The point in space to move the polygon to
      * @returns True
      */
-    moveTo(point: Point){
+    moveTo(point: Point) {
         var newPoints: Point[] = [];
 
         for (var p of this.points) {
             newPoints.push(<Point>sumArrays(p, <Vec2>sumArrays(point, <Vec2>multArrays([-1, -1], this.coordinates))));
         }
         this.points = newPoints;
-        
+
         return true;
     }
 }
+
 
 /**
  * @class Sprite
@@ -1855,7 +1856,7 @@ class Sprite extends GameObject {
      * Loads the sprite, or reloads the image source when the image is changed
      */
     reload(): void {
-        this.source.crossOrigin = "ananymous";
+        this.source.crossOrigin = "anonymous";
         this.source.src = this.image;
         this.source.onload = () => {
             this.spriteLoaded = true;
@@ -1871,12 +1872,12 @@ class Sprite extends GameObject {
         if (!this.spriteLoaded) return;
         super.draw(options);
         var { ctx, camera } = options;
-        if (!this.physicsEnabled) {
+        if (!this.angle || this.angle == 0) {
             ctx.drawImage(this.source, this.coordinates[0] - camera[0], this.coordinates[1] - camera[1], this.width, this.height);
         } else {
-            var c = getCentroid(this.points);
+            var c = getCentroid(this.polify());
             var [x, y] = [c[0] - camera[0], c[1] - camera[1]];
-            var rotation = this.body.angle;
+            var rotation = (this.body && this.body.angle) ? this.body.angle || this.angle || 0 : this.angle || 0;
 
 
             ctx.save();
@@ -1948,6 +1949,90 @@ class Sprite extends GameObject {
 }
 
 
+interface ParticleOptions extends SpriteOptions {
+    spread: number;
+    speed: number;
+    life: number;
+    spawnRate: number;
+}
+
+interface ParticleChildOptions {
+    angle: number;
+    speed: number;
+    life: number;
+}
+class Particle extends Sprite {
+    speed: number;
+    life: number;
+    angle: number;
+    spawnedAt: number;
+
+    constructor(options: SpriteOptions, childOpts: ParticleChildOptions) {
+        super(options);
+        this.type = "particle_child";
+        this.speed = childOpts.speed;
+        this.life = childOpts.life;
+        this.angle = childOpts.angle;
+        this.spawnedAt = performance.now();
+    }
+    
+    update() {
+        this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
+    }
+    draw(options: DrawOptions) {
+        super.draw(options);
+    }
+}
+class Particles extends Sprite {
+    spread: number;
+    speed: number;
+    life: number;
+    children: Array<Particle>;
+
+    constructor(options: ParticleOptions) {
+        super(options);
+        this.type = "particle";
+        this.spread = options.spread;
+        this.speed = options.speed;
+        this.life = options.life;
+        this.children = [];
+        this.spawnRate = options.spawnRate;
+
+
+        this.spawn();
+    }
+    spawn() {
+        var angle = Math.random() * this.spread - this.spread / 2;
+        console.log(this.coordinates)
+        var child = new Particle({
+            url: this.image,
+            coordinates: this.coordinates,
+            width: this.width,
+            height: this.height,
+        }, {
+            angle,
+            speed: this.speed,
+            life: this.life
+        });
+        this.children.push(child);
+        setTimeout(() => {
+            this.spawn();
+        }, this.spawnRate);
+    }
+    update() {
+        this.children = this.children.filter((child: Particle) => {
+            return performance.now() - child.spawnedAt < child.life;
+        });
+
+
+    }
+    draw(drawOptions: DrawOptions) {
+        this.children.forEach((child: Particle) => {
+            child.update();
+            child.draw(drawOptions)
+        });
+    }
+}
 
 /**
  * @class Text
@@ -1968,7 +2053,7 @@ class Sprite extends GameObject {
  *      color: "black"
  *  });
  */
-class Text extends GameObject{
+class Text extends GameObject {
     text: string;
     coordinates: Point;
     font: string;
@@ -1976,7 +2061,7 @@ class Text extends GameObject{
     color: string;
     type: string;
     ctx: CanvasRenderingContext2D | null;
-    constructor(options: TextOptions){
+    constructor(options: TextOptions) {
         super(options)
         this.text = options.text;
         this.coordinates = options.coordinates;
@@ -1992,8 +2077,8 @@ class Text extends GameObject{
      * 
      * @param options DrawOptions for the object
      */
-    draw(options: DrawOptions): void{
-        if(!options.ctx) return;
+    draw(options: DrawOptions): void {
+        if (!options.ctx) return;
         this.ctx = options.ctx;
         this.ctx.font = `${this.fontSize}px ${this.font}`
         this.ctx.fillStyle = this.color;
@@ -2005,13 +2090,13 @@ class Text extends GameObject{
      * @param scene The scene that the text is in
      * @returns The width of the text, in pixels
      */
-    getWidth(scene: Scene | null){
-        if(!scene && !this.ctx) return 0;
-        if(scene){
-            if(!scene.readyToDraw) return 0;
+    getWidth(scene: Scene | null) {
+        if (!scene && !this.ctx) return 0;
+        if (scene) {
+            if (!scene.readyToDraw) return 0;
             this.ctx = scene.ctx;
         }
-        if(!this.ctx) return 0;
+        if (!this.ctx) return 0;
         this.ctx.font = `${this.fontSize}px ${this.font}`
         return this.ctx.measureText(this.text).width;
     }
@@ -2021,13 +2106,13 @@ class Text extends GameObject{
      * @param scene The scene that the text is in
      * @returns The height of the text, in pixels
      */
-    getHeight(scene: Scene | null){
-        if(!scene && !this.ctx) return 0;
-        if(scene){
-            if(!scene.readyToDraw) return 0;
+    getHeight(scene: Scene | null) {
+        if (!scene && !this.ctx) return 0;
+        if (scene) {
+            if (!scene.readyToDraw) return 0;
             this.ctx = scene.ctx;
         }
-        if(!this.ctx) return 0;
+        if (!this.ctx) return 0;
         this.ctx.font = `${this.fontSize}px ${this.font}`
         return this.ctx.measureText(this.text).actualBoundingBoxAscent;
     }
@@ -2036,7 +2121,7 @@ class Text extends GameObject{
      * 
      * @returns A list of points representing the bounding box of the text
      */
-    polify(): Vec2[]{
+    polify(): Vec2[] {
         return [
             [this.coordinates[0], this.coordinates[1]],
             [this.coordinates[0] + this.getWidth(null), this.coordinates[1]],
@@ -2336,7 +2421,7 @@ class Layer {
             }
             this.Composite.add(this.engine.world, [object.body]);
         }
-        if(this.boundsActive) object.setBounds(this.bounds);
+        if (this.boundsActive) object.setBounds(this.bounds);
         object.initialize(scene);
         this.objects.push(object);
     }
@@ -2556,7 +2641,7 @@ class Scene {
             this.layers.push(layer1);
             // layers are linear... first layer is layer 0, second is layer 1, etc.
         }
-        if(this.boundsActive) {
+        if (this.boundsActive) {
             this.setBoundaries(this.bounds[0], this.bounds[1], this.boundsActive);
         }
         if (this.lighting) {
@@ -3019,7 +3104,7 @@ class Scene {
      * @param object GameObject to remove from the scene
      */
     removeObject(object: GameObject): void {
-        this.collisionMonitors = this.collisionMonitors.filter(monitor=>{
+        this.collisionMonitors = this.collisionMonitors.filter(monitor => {
             return monitor[0].id != object.id && monitor[1].id != object.id;
         })
         this.objects = this.objects.filter(compare => {
@@ -4410,7 +4495,7 @@ class Sound {
             this.ready = true;
             if (this.wantsToPlay) this.play()
         });
-        this.sound.addEventListener("ended", () => {        
+        this.sound.addEventListener("ended", () => {
             this.playing = false;
         });
     }
@@ -4439,7 +4524,7 @@ class Sound {
         }
         return true;
     }
-    setVolume(volume: number){
+    setVolume(volume: number) {
         this.volume = volume;
         this.sound.volume = volume;
     }
@@ -4627,6 +4712,8 @@ var ANVIL = {
     GameObject,
     Polygon,
     Sprite,
+    Particle,
+    Particles,
     Text,
 
     Sound,
@@ -4669,6 +4756,8 @@ export {
     GameObject,
     Polygon,
     Sprite,
+    Particle,
+    Particles,
     Text,
 
     Sound,
