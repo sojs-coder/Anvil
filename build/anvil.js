@@ -12132,7 +12132,7 @@ var Sprite = /** @class */ (function (_super) {
      */
     Sprite.prototype.reload = function () {
         var _this = this;
-        this.source.crossOrigin = "anonymous";
+        // this.source.crossOrigin = "anonymous";
         this.source.src = this.image;
         this.source.onload = function () {
             _this.spriteLoaded = true;
@@ -12243,32 +12243,43 @@ var Particles = /** @class */ (function (_super) {
     function Particles(options) {
         var _this = _super.call(this, options) || this;
         _this.type = "particle";
-        _this.spread = options.spread;
-        _this.speed = options.speed;
-        _this.life = options.life;
+        _this.spread = options.spread || Math.PI * 2;
+        _this.speed = options.speed || 1;
+        _this.life = options.life || 500;
         _this.children = [];
-        _this.spawnRate = options.spawnRate;
+        _this.spawnRate = options.spawnRate || 50;
+        _this.angle = options.angle || 0;
+        _this.lifeVariability = options.lifeVariability || 0;
         _this.spawn();
         return _this;
     }
-    Particles.prototype.spawn = function () {
+    Particles.prototype.spawn = function (n) {
         var _this = this;
-        var angle = Math.random() * this.spread - this.spread / 2;
-        console.log(this.coordinates);
-        var child = new Particle({
-            url: this.image,
-            coordinates: this.coordinates,
-            width: this.width,
-            height: this.height,
-        }, {
-            angle: angle,
-            speed: this.speed,
-            life: this.life
-        });
-        this.children.push(child);
-        setTimeout(function () {
-            _this.spawn();
-        }, this.spawnRate);
+        if (n === void 0) { n = 1; }
+        for (var i = 0; i < n; i++) {
+            var angle = (Math.random() * this.spread - this.spread / 2) - (this.angle);
+            var child = new Particle({
+                url: this.image,
+                coordinates: this.coordinates,
+                width: this.width,
+                height: this.height,
+            }, {
+                angle: angle,
+                speed: this.speed,
+                life: this.life * (1 + Math.random() * this.lifeVariability - this.lifeVariability / 2)
+            });
+            this.children.push(child);
+        }
+        if (this.spawnRate >= 10) {
+            setTimeout(function () {
+                _this.spawn();
+            }, this.spawnRate);
+        }
+        else {
+            setTimeout(function () {
+                _this.spawn(Math.floor(10 / _this.spawnRate));
+            });
+        }
     };
     Particles.prototype.update = function () {
         this.children = this.children.filter(function (child) {

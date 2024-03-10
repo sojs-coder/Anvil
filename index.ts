@@ -1856,7 +1856,7 @@ class Sprite extends GameObject {
      * Loads the sprite, or reloads the image source when the image is changed
      */
     reload(): void {
-        this.source.crossOrigin = "anonymous";
+        // this.source.crossOrigin = "anonymous";
         this.source.src = this.image;
         this.source.onload = () => {
             this.spriteLoaded = true;
@@ -1950,10 +1950,12 @@ class Sprite extends GameObject {
 
 
 interface ParticleOptions extends SpriteOptions {
-    spread: number;
-    speed: number;
-    life: number;
-    spawnRate: number;
+    spread?: number; // defualt Math.PI * 2
+    speed?: number; // defualt 1
+    life?: number; // defualt 500
+    spawnRate?: number; // defualt 50
+    angle?: number; // defualt 0
+    lifeVariability?: number; // defualt 0
 }
 
 interface ParticleChildOptions {
@@ -1975,7 +1977,7 @@ class Particle extends Sprite {
         this.angle = childOpts.angle;
         this.spawnedAt = performance.now();
     }
-    
+
     update() {
         this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
     }
@@ -1988,36 +1990,44 @@ class Particles extends Sprite {
     speed: number;
     life: number;
     children: Array<Particle>;
+    lifeVariability: number;
 
     constructor(options: ParticleOptions) {
         super(options);
         this.type = "particle";
-        this.spread = options.spread;
-        this.speed = options.speed;
-        this.life = options.life;
+        this.spread = options.spread || Math.PI * 2;
+        this.speed = options.speed || 1;
+        this.life = options.life || 500;
         this.children = [];
-        this.spawnRate = options.spawnRate;
-
-
+        this.spawnRate = options.spawnRate || 50;
+        this.angle = options.angle || 0;
+        this.lifeVariability = options.lifeVariability || 0;
         this.spawn();
     }
-    spawn() {
-        var angle = Math.random() * this.spread - this.spread / 2;
-        console.log(this.coordinates)
-        var child = new Particle({
-            url: this.image,
-            coordinates: this.coordinates,
-            width: this.width,
-            height: this.height,
-        }, {
-            angle,
-            speed: this.speed,
-            life: this.life
-        });
-        this.children.push(child);
-        setTimeout(() => {
-            this.spawn();
-        }, this.spawnRate);
+    spawn(n = 1) {
+        for (var i = 0; i < n; i++) {
+            var angle = (Math.random() * this.spread - this.spread / 2) - (this.angle);
+            var child = new Particle({
+                url: this.image,
+                coordinates: this.coordinates,
+                width: this.width,
+                height: this.height,
+            }, {
+                angle,
+                speed: this.speed,
+                life: this.life * (1 + Math.random() * this.lifeVariability - this.lifeVariability / 2)
+            });
+            this.children.push(child);
+        }
+        if (this.spawnRate >= 10) {
+            setTimeout(() => {
+                this.spawn();
+            }, this.spawnRate);
+        } else {
+            setTimeout(()=>{
+                this.spawn(Math.floor(10 / this.spawnRate));
+            })
+        }
     }
     update() {
         this.children = this.children.filter((child: Particle) => {
