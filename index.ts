@@ -1220,6 +1220,7 @@ function checkCollision(polygon: Point[], pointsArray: Array<Point>): Boolean {
  * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
  * @property {Array<GameObject>} blocks - List of objects that this object blocks
  * @property {Array<GameObject>} blockedBy - List of objects that block this object
+ * @property {"coordinates" | "center"} pinRef - Reference point to pin the object to (only applies if the object is pinned)
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -1240,7 +1241,7 @@ class GameObject {
     id: string; // unique ID for each object
     bounds: Array<number>; // how the object is bounded in the scene (set with scene.setBoundaries())
     boundsActive: boolean; // are the bounds active on this object?
-    pinned: boolean; // does nothing!
+    pinned: GameObject | null; // the game object whose coordinates this object is pinned to
     _state: { [key: string]: any }; // used for state() and returnState(), builds states that are returnable. Stacking two states is destructive.
     square: boolean; // True if the object is a square, false otherwise
     hitbox: Vec2; // Hitbox of the object, if the object is a square
@@ -1254,6 +1255,7 @@ class GameObject {
     isLocalPlayer: boolean;
     blocks: Array<GameObject>;
     blockedBy: Array<GameObject>;
+    pinRef: "coordinates" | "center";
     [key: string]: any;
 
     /**
@@ -1262,25 +1264,16 @@ class GameObject {
      */
     constructor(options: GameObjectOptions = {}) {
         this.gameObjectOptions = options;
-        // will physics work on this object?
         this.physicsEnabled = options.physicsEnabled || false;
         this.physicsOptions = options.physicsOptions || {};
-
         if (this.physicsEnabled) {
             this.body = {}
         }
-        // unique ID for each object
         this.id = options.id || uid();
-
-        // where can it move? set with scene.setBoundaries()
         this.bounds = options.bounds || [0, 0];
         this.boundsActive = options.boundsActive || false;
-
-        // does nothing!
-        this.pinned = true;
-
+        this.pinned = null;
         this._state = options._state || {};
-
         this.square = options.square || false; // assume the worst
         this.hitbox = options.hitbox || [0, 0];
         this.points = options.points || [];
@@ -1291,6 +1284,7 @@ class GameObject {
         this.isLocalPlayer = false;
         this.blocks = options.blocks || [];
         this.blockedBy = [];
+        this.pinRef = "coordinates";
         this.blocks.forEach((object: GameObject) => {
             object.blockedBy.push(this);
         })
@@ -1411,13 +1405,14 @@ class GameObject {
      * Modifies pin
      */
     unpin() {
-        this.pinned = false;
+        this.pinned = null;
     }
     /**
      * Modifies pin
      */
-    pin() {
-        this.pinned = true
+    pin(object: GameObject, to: "center" | "coordinates") {
+        this.pinned = object;
+        this.pinRef = to;
     }
 
     /**
@@ -1440,6 +1435,7 @@ class GameObject {
 
     /**
      * Draws the object's label on top of the object
+     * The label is the objects meta label (eg: object.meta.label = "...")
      * 
      * @param options The DrawOptions for the object
      */
@@ -1588,7 +1584,17 @@ class GameObject {
      * Does nothing
      */
     update() {
+        if(this.pinned){
+            if(this.pinRef == "center"){
+                var centroid = getCentroid(this.polify());
+                var pinnedCentroid = getCentroid(this.pinned.polify());
 
+                var vector: Vec2 = [pinnedCentroid[0] - centroid[0], pinnedCentroid[1] - centroid[1]];
+                this.moveStatic(vector);
+            } else {
+                this.coordinates = this.pinned.coordinates;
+            }
+        }
     }
 
     initialize(scene: Scene) {
@@ -1788,7 +1794,7 @@ class Polygon extends GameObject {
             newPoints.push(<Point>sumArrays(p, <Vec2>sumArrays(point, <Vec2>multArrays([-1, -1], this.coordinates))));
         }
         this.points = newPoints;
-
+        this.coordinates = findTopLeftMostPoint(this.points);
         return true;
     }
 }
@@ -1979,6 +1985,7 @@ class Particle extends Sprite {
     }
 
     update() {
+        super.update();
         this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
     }
     draw(options: DrawOptions) {
@@ -1991,7 +1998,6 @@ class Particles extends Sprite {
     life: number;
     children: Array<Particle>;
     lifeVariability: number;
-
     constructor(options: ParticleOptions) {
         super(options);
         this.type = "particle";
@@ -2030,6 +2036,7 @@ class Particles extends Sprite {
         }
     }
     update() {
+        super.update();
         this.children = this.children.filter((child: Particle) => {
             return performance.now() - child.spawnedAt < child.life;
         });
@@ -4828,6 +4835,9 @@ export {
     SoundOptions,
     SoundEmitterOptions,
     CollisionMonitorOptions,
+    ParticleChildOptions,
+    ParticleOptions,
+    TextOptions,
 
     NotReadyStackEmitItem,
     Gravity,
