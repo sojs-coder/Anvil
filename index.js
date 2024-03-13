@@ -1041,6 +1041,12 @@ var Polygon = /** @class */ (function (_super) {
         this.coordinates = findTopLeftMostPoint(this.points);
         return moved;
     };
+    /**
+     * Moves the polygon to a point as apposed to moving it by a vector
+     *
+     * @param point The point in space to move the polygon to
+     * @returns True
+     */
     Polygon.prototype.moveTo = function (point) {
         var newPoints = [];
         for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
@@ -1198,6 +1204,25 @@ var Sprite = /** @class */ (function (_super) {
     return Sprite;
 }(GameObject));
 exports.Sprite = Sprite;
+/**
+ * @class Text
+ * @classdesc Text class, used for rendering text
+ * @property {string} text - The text to render
+ * @property {Point} coordinates - The coordinates of the text
+ * @property {string} font - The font of the text, eg: "Arial", "Times New Roman", etc.
+ * @property {number} fontSize - The font size of the text, in pixels
+ * @property {string} color - The color of the text, in hex or rgb format
+ * @property {string} type - The type of the object, "text"
+ * @example
+ * ```js
+ *  const text = new Text({
+ *      text: "Hello, World!",
+ *      coordinates: [0, 0],
+ *      font: "Arial",
+ *      fontSize: 20,
+ *      color: "black"
+ *  });
+ */
 var Text = /** @class */ (function (_super) {
     __extends(Text, _super);
     function Text(options) {
@@ -1212,6 +1237,11 @@ var Text = /** @class */ (function (_super) {
         return _this;
     }
     ;
+    /**
+     * Draws the text onto the provided drawing context. This is handled automatically with scene and scene managers
+     *
+     * @param options DrawOptions for the object
+     */
     Text.prototype.draw = function (options) {
         if (!options.ctx)
             return;
@@ -1220,6 +1250,12 @@ var Text = /** @class */ (function (_super) {
         this.ctx.fillStyle = this.color;
         this.ctx.fillText(this.text, this.coordinates[0] - options.camera[0], this.coordinates[1] - options.camera[1]);
     };
+    /**
+     * Gets the width, as rendered, of the text
+     *
+     * @param scene The scene that the text is in
+     * @returns The width of the text, in pixels
+     */
     Text.prototype.getWidth = function (scene) {
         if (!scene && !this.ctx)
             return 0;
@@ -1233,6 +1269,12 @@ var Text = /** @class */ (function (_super) {
         this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
         return this.ctx.measureText(this.text).width;
     };
+    /**
+     * Gets the height, as rendered, of the text
+     *
+     * @param scene The scene that the text is in
+     * @returns The height of the text, in pixels
+     */
     Text.prototype.getHeight = function (scene) {
         if (!scene && !this.ctx)
             return 0;
@@ -1246,6 +1288,11 @@ var Text = /** @class */ (function (_super) {
         this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
         return this.ctx.measureText(this.text).actualBoundingBoxAscent;
     };
+    /**
+     * Gets a list of points representing the bounding box of the text
+     *
+     * @returns A list of points representing the bounding box of the text
+     */
     Text.prototype.polify = function () {
         return [
             [this.coordinates[0], this.coordinates[1]],
