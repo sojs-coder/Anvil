@@ -1402,13 +1402,16 @@ class GameObject {
     }
 
     /**
-     * Modifies pin
+     * Removes the pinned object
      */
     unpin() {
         this.pinned = null;
     }
     /**
-     * Modifies pin
+     * Modifies pin to a game object
+     * 
+     * @param object The game object to pin to
+     * @param to The reference point to pin to (either "center" or "coordinates")
      */
     pin(object: GameObject, to: "center" | "coordinates") {
         this.pinned = object;
@@ -1954,7 +1957,29 @@ class Sprite extends GameObject {
     }
 }
 
-
+/**
+ * @interface ParticleOptions
+ * @property {number} spread - The spread of the particles (in radians)
+ * @property {number} speed - The speed of the particles (in pixels per tick)
+ * @property {number} life - The life of the particles (in milliseconds)
+ * @property {number} spawnRate - The spawn rate of the particles (in milliseconds)
+ * @property {number} angle - The angle of the particles (in radians)
+ * @property {number} lifeVariability - The variability of the life of the particles (in milliseconds)
+ * @example
+ * ```js
+ *  const particles = new Particles({
+ *      url: "https://i.imgur.com/9Nc8fFp.png",
+ *      coordinates: [0, 0],
+ *      width: 100,
+ *      height: 100,
+ *      spread: Math.PI * 2,
+ *      speed: 1,
+ *      life: 500,
+ *      angle: Math.PI / 2,
+ *      lifeVariability: 0,
+ *      spawnRate: 50
+ *  });
+ */
 interface ParticleOptions extends SpriteOptions {
     spread?: number; // defualt Math.PI * 2
     speed?: number; // defualt 1
@@ -1963,12 +1988,25 @@ interface ParticleOptions extends SpriteOptions {
     angle?: number; // defualt 0
     lifeVariability?: number; // defualt 0
 }
-
+/**
+ * @interface ParticleChildOptions
+ * @property {number} angle - The angle of the particle (in radians)
+ * @property {number} speed - The speed of the particle (in pixels per tick)
+ * @property {number} life - The life of the particle (in milliseconds)
+ */
 interface ParticleChildOptions {
     angle: number;
     speed: number;
     life: number;
 }
+/**
+ * @class Particle
+ * @classdesc Particle class, renders a single particle
+ * @property {number} speed - The speed of the particles (in pixels per tick)
+ * @property {number} life - The life of the particles (in milliseconds)
+ * @property {number} angle - The angle of the particles (in radians)
+ * @property {number} spawnedAt - The time the particle was spawned
+ */
 class Particle extends Sprite {
     speed: number;
     life: number;
@@ -1992,6 +2030,29 @@ class Particle extends Sprite {
         super.draw(options);
     }
 }
+/**
+ * @class Particles
+ * @classdesc Particles class, used for rendering particles
+ * @property {number} spread - The spread of the particles (in radians)
+ * @property {number} speed - The speed of the particles (in pixels per tick)
+ * @property {number} life - The life of the particles (in milliseconds)
+ * @property {Array<Particle>} children - The children of the particles (each particle object)
+ * @property {number} lifeVariability - The variability of the life of the particles (in milliseconds)
+ * @example
+ * ```js
+ *  const particles = new Particles({
+ *      url: "https://i.imgur.com/9Nc8fFp.png",
+ *      coordinates: [0, 0],
+ *      width: 100,
+ *      height: 100,
+ *      spread: Math.PI * 2,
+ *      speed: 1,
+ *      life: 500,
+ *      angle: Math.PI / 2,
+ *      lifeVariability: 0,
+ *      spawnRate: 50
+ *  });
+ */
 class Particles extends Sprite {
     spread: number;
     speed: number;
@@ -2010,6 +2071,11 @@ class Particles extends Sprite {
         this.lifeVariability = options.lifeVariability || 0;
         this.spawn();
     }
+    /**
+     * Spawns a number (n) of particles
+     * 
+     * @param n The number of particles to spawn
+     */
     spawn(n = 1) {
         for (var i = 0; i < n; i++) {
             var angle = (Math.random() * this.spread - this.spread / 2) - (this.angle);
@@ -2035,6 +2101,9 @@ class Particles extends Sprite {
             })
         }
     }
+    /**
+     * Updates all of the particles
+     */
     update() {
         super.update();
         this.children = this.children.filter((child: Particle) => {
@@ -2043,6 +2112,11 @@ class Particles extends Sprite {
 
 
     }
+    /**
+     * Draws all of the particles
+     * 
+     * @param drawOptions The DrawOptions for the object
+     */
     draw(drawOptions: DrawOptions) {
         this.children.forEach((child: Particle) => {
             child.update();
