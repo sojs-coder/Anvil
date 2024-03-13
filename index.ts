@@ -1220,6 +1220,7 @@ function checkCollision(polygon: Point[], pointsArray: Array<Point>): Boolean {
  * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
  * @property {Array<GameObject>} blocks - List of objects that this object blocks
  * @property {Array<GameObject>} blockedBy - List of objects that block this object
+ * @property {"coordinates" | "center"} pinRef - Reference point to pin the object to (only applies if the object is pinned)
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -1240,7 +1241,7 @@ class GameObject {
     id: string; // unique ID for each object
     bounds: Array<number>; // how the object is bounded in the scene (set with scene.setBoundaries())
     boundsActive: boolean; // are the bounds active on this object?
-    pinned: boolean; // does nothing!
+    pinned: GameObject | null; // the game object whose coordinates this object is pinned to
     _state: { [key: string]: any }; // used for state() and returnState(), builds states that are returnable. Stacking two states is destructive.
     square: boolean; // True if the object is a square, false otherwise
     hitbox: Vec2; // Hitbox of the object, if the object is a square
@@ -1254,6 +1255,7 @@ class GameObject {
     isLocalPlayer: boolean;
     blocks: Array<GameObject>;
     blockedBy: Array<GameObject>;
+    pinRef: "coordinates" | "center";
     [key: string]: any;
 
     /**
@@ -1262,25 +1264,16 @@ class GameObject {
      */
     constructor(options: GameObjectOptions = {}) {
         this.gameObjectOptions = options;
-        // will physics work on this object?
         this.physicsEnabled = options.physicsEnabled || false;
         this.physicsOptions = options.physicsOptions || {};
-
         if (this.physicsEnabled) {
             this.body = {}
         }
-        // unique ID for each object
         this.id = options.id || uid();
-
-        // where can it move? set with scene.setBoundaries()
         this.bounds = options.bounds || [0, 0];
         this.boundsActive = options.boundsActive || false;
-
-        // does nothing!
-        this.pinned = true;
-
+        this.pinned = null;
         this._state = options._state || {};
-
         this.square = options.square || false; // assume the worst
         this.hitbox = options.hitbox || [0, 0];
         this.points = options.points || [];
@@ -1291,6 +1284,7 @@ class GameObject {
         this.isLocalPlayer = false;
         this.blocks = options.blocks || [];
         this.blockedBy = [];
+        this.pinRef = "coordinates";
         this.blocks.forEach((object: GameObject) => {
             object.blockedBy.push(this);
         })
@@ -1411,13 +1405,14 @@ class GameObject {
      * Modifies pin
      */
     unpin() {
-        this.pinned = false;
+        this.pinned = null;
     }
     /**
      * Modifies pin
      */
-    pin() {
-        this.pinned = true
+    pin(object: GameObject, to: "center" | "coordinates") {
+        this.pinned = object;
+        this.pinRef = to;
     }
 
     /**
@@ -1440,6 +1435,7 @@ class GameObject {
 
     /**
      * Draws the object's label on top of the object
+     * The label is the objects meta label (eg: object.meta.label = "...")
      * 
      * @param options The DrawOptions for the object
      */
@@ -1588,7 +1584,17 @@ class GameObject {
      * Does nothing
      */
     update() {
+        if(this.pinned){
+            if(this.pinRef == "center"){
+                var centroid = getCentroid(this.polify());
+                var pinnedCentroid = getCentroid(this.pinned.polify());
 
+                var vector: Vec2 = [pinnedCentroid[0] - centroid[0], pinnedCentroid[1] - centroid[1]];
+                this.moveStatic(vector);
+            } else {
+                this.coordinates = this.pinned.coordinates;
+            }
+        }
     }
 
     initialize(scene: Scene) {
@@ -1781,17 +1787,18 @@ class Polygon extends GameObject {
      * @param point The point in space to move the polygon to
      * @returns True
      */
-    moveTo(point: Point){
+    moveTo(point: Point) {
         var newPoints: Point[] = [];
 
         for (var p of this.points) {
             newPoints.push(<Point>sumArrays(p, <Vec2>sumArrays(point, <Vec2>multArrays([-1, -1], this.coordinates))));
         }
         this.points = newPoints;
-        
+        this.coordinates = findTopLeftMostPoint(this.points);
         return true;
     }
 }
+
 
 /**
  * @class Sprite
@@ -1855,7 +1862,7 @@ class Sprite extends GameObject {
      * Loads the sprite, or reloads the image source when the image is changed
      */
     reload(): void {
-        this.source.crossOrigin = "ananymous";
+        // this.source.crossOrigin = "anonymous";
         this.source.src = this.image;
         this.source.onload = () => {
             this.spriteLoaded = true;
@@ -1871,12 +1878,12 @@ class Sprite extends GameObject {
         if (!this.spriteLoaded) return;
         super.draw(options);
         var { ctx, camera } = options;
-        if (!this.physicsEnabled) {
+        if (!this.angle || this.angle == 0) {
             ctx.drawImage(this.source, this.coordinates[0] - camera[0], this.coordinates[1] - camera[1], this.width, this.height);
         } else {
-            var c = getCentroid(this.points);
+            var c = getCentroid(this.polify());
             var [x, y] = [c[0] - camera[0], c[1] - camera[1]];
-            var rotation = this.body.angle;
+            var rotation = (this.body && this.body.angle) ? this.body.angle || this.angle || 0 : this.angle || 0;
 
 
             ctx.save();
@@ -1948,6 +1955,101 @@ class Sprite extends GameObject {
 }
 
 
+interface ParticleOptions extends SpriteOptions {
+    spread?: number; // defualt Math.PI * 2
+    speed?: number; // defualt 1
+    life?: number; // defualt 500
+    spawnRate?: number; // defualt 50
+    angle?: number; // defualt 0
+    lifeVariability?: number; // defualt 0
+}
+
+interface ParticleChildOptions {
+    angle: number;
+    speed: number;
+    life: number;
+}
+class Particle extends Sprite {
+    speed: number;
+    life: number;
+    angle: number;
+    spawnedAt: number;
+
+    constructor(options: SpriteOptions, childOpts: ParticleChildOptions) {
+        super(options);
+        this.type = "particle_child";
+        this.speed = childOpts.speed;
+        this.life = childOpts.life;
+        this.angle = childOpts.angle;
+        this.spawnedAt = performance.now();
+    }
+
+    update() {
+        super.update();
+        this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
+    }
+    draw(options: DrawOptions) {
+        super.draw(options);
+    }
+}
+class Particles extends Sprite {
+    spread: number;
+    speed: number;
+    life: number;
+    children: Array<Particle>;
+    lifeVariability: number;
+    constructor(options: ParticleOptions) {
+        super(options);
+        this.type = "particle";
+        this.spread = options.spread || Math.PI * 2;
+        this.speed = options.speed || 1;
+        this.life = options.life || 500;
+        this.children = [];
+        this.spawnRate = options.spawnRate || 50;
+        this.angle = options.angle || 0;
+        this.lifeVariability = options.lifeVariability || 0;
+        this.spawn();
+    }
+    spawn(n = 1) {
+        for (var i = 0; i < n; i++) {
+            var angle = (Math.random() * this.spread - this.spread / 2) - (this.angle);
+            var child = new Particle({
+                url: this.image,
+                coordinates: this.coordinates,
+                width: this.width,
+                height: this.height,
+            }, {
+                angle,
+                speed: this.speed,
+                life: this.life * (1 + Math.random() * this.lifeVariability - this.lifeVariability / 2)
+            });
+            this.children.push(child);
+        }
+        if (this.spawnRate >= 10) {
+            setTimeout(() => {
+                this.spawn();
+            }, this.spawnRate);
+        } else {
+            setTimeout(()=>{
+                this.spawn(Math.floor(10 / this.spawnRate));
+            })
+        }
+    }
+    update() {
+        super.update();
+        this.children = this.children.filter((child: Particle) => {
+            return performance.now() - child.spawnedAt < child.life;
+        });
+
+
+    }
+    draw(drawOptions: DrawOptions) {
+        this.children.forEach((child: Particle) => {
+            child.update();
+            child.draw(drawOptions)
+        });
+    }
+}
 
 /**
  * @class Text
@@ -1968,7 +2070,7 @@ class Sprite extends GameObject {
  *      color: "black"
  *  });
  */
-class Text extends GameObject{
+class Text extends GameObject {
     text: string;
     coordinates: Point;
     font: string;
@@ -1976,7 +2078,7 @@ class Text extends GameObject{
     color: string;
     type: string;
     ctx: CanvasRenderingContext2D | null;
-    constructor(options: TextOptions){
+    constructor(options: TextOptions) {
         super(options)
         this.text = options.text;
         this.coordinates = options.coordinates;
@@ -1992,8 +2094,8 @@ class Text extends GameObject{
      * 
      * @param options DrawOptions for the object
      */
-    draw(options: DrawOptions): void{
-        if(!options.ctx) return;
+    draw(options: DrawOptions): void {
+        if (!options.ctx) return;
         this.ctx = options.ctx;
         this.ctx.font = `${this.fontSize}px ${this.font}`
         this.ctx.fillStyle = this.color;
@@ -2005,13 +2107,13 @@ class Text extends GameObject{
      * @param scene The scene that the text is in
      * @returns The width of the text, in pixels
      */
-    getWidth(scene: Scene | null){
-        if(!scene && !this.ctx) return 0;
-        if(scene){
-            if(!scene.readyToDraw) return 0;
+    getWidth(scene: Scene | null) {
+        if (!scene && !this.ctx) return 0;
+        if (scene) {
+            if (!scene.readyToDraw) return 0;
             this.ctx = scene.ctx;
         }
-        if(!this.ctx) return 0;
+        if (!this.ctx) return 0;
         this.ctx.font = `${this.fontSize}px ${this.font}`
         return this.ctx.measureText(this.text).width;
     }
@@ -2021,13 +2123,13 @@ class Text extends GameObject{
      * @param scene The scene that the text is in
      * @returns The height of the text, in pixels
      */
-    getHeight(scene: Scene | null){
-        if(!scene && !this.ctx) return 0;
-        if(scene){
-            if(!scene.readyToDraw) return 0;
+    getHeight(scene: Scene | null) {
+        if (!scene && !this.ctx) return 0;
+        if (scene) {
+            if (!scene.readyToDraw) return 0;
             this.ctx = scene.ctx;
         }
-        if(!this.ctx) return 0;
+        if (!this.ctx) return 0;
         this.ctx.font = `${this.fontSize}px ${this.font}`
         return this.ctx.measureText(this.text).actualBoundingBoxAscent;
     }
@@ -2036,7 +2138,7 @@ class Text extends GameObject{
      * 
      * @returns A list of points representing the bounding box of the text
      */
-    polify(): Vec2[]{
+    polify(): Vec2[] {
         return [
             [this.coordinates[0], this.coordinates[1]],
             [this.coordinates[0] + this.getWidth(null), this.coordinates[1]],
@@ -2336,7 +2438,7 @@ class Layer {
             }
             this.Composite.add(this.engine.world, [object.body]);
         }
-        if(this.boundsActive) object.setBounds(this.bounds);
+        if (this.boundsActive) object.setBounds(this.bounds);
         object.initialize(scene);
         this.objects.push(object);
     }
@@ -2556,7 +2658,7 @@ class Scene {
             this.layers.push(layer1);
             // layers are linear... first layer is layer 0, second is layer 1, etc.
         }
-        if(this.boundsActive) {
+        if (this.boundsActive) {
             this.setBoundaries(this.bounds[0], this.bounds[1], this.boundsActive);
         }
         if (this.lighting) {
@@ -3019,7 +3121,7 @@ class Scene {
      * @param object GameObject to remove from the scene
      */
     removeObject(object: GameObject): void {
-        this.collisionMonitors = this.collisionMonitors.filter(monitor=>{
+        this.collisionMonitors = this.collisionMonitors.filter(monitor => {
             return monitor[0].id != object.id && monitor[1].id != object.id;
         })
         this.objects = this.objects.filter(compare => {
@@ -4410,7 +4512,7 @@ class Sound {
             this.ready = true;
             if (this.wantsToPlay) this.play()
         });
-        this.sound.addEventListener("ended", () => {        
+        this.sound.addEventListener("ended", () => {
             this.playing = false;
         });
     }
@@ -4439,7 +4541,7 @@ class Sound {
         }
         return true;
     }
-    setVolume(volume: number){
+    setVolume(volume: number) {
         this.volume = volume;
         this.sound.volume = volume;
     }
@@ -4627,6 +4729,8 @@ var ANVIL = {
     GameObject,
     Polygon,
     Sprite,
+    Particle,
+    Particles,
     Text,
 
     Sound,
@@ -4669,6 +4773,8 @@ export {
     GameObject,
     Polygon,
     Sprite,
+    Particle,
+    Particles,
     Text,
 
     Sound,
@@ -4729,6 +4835,9 @@ export {
     SoundOptions,
     SoundEmitterOptions,
     CollisionMonitorOptions,
+    ParticleChildOptions,
+    ParticleOptions,
+    TextOptions,
 
     NotReadyStackEmitItem,
     Gravity,
