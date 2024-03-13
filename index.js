@@ -526,6 +526,7 @@ exports.checkCollision = checkCollision;
  * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
  * @property {Array<GameObject>} blocks - List of objects that this object blocks
  * @property {Array<GameObject>} blockedBy - List of objects that block this object
+ * @property {"coordinates" | "center"} pinRef - Reference point to pin the object to (only applies if the object is pinned)
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -549,19 +550,15 @@ var GameObject = /** @class */ (function () {
         if (options === void 0) { options = {}; }
         var _this = this;
         this.gameObjectOptions = options;
-        // will physics work on this object?
         this.physicsEnabled = options.physicsEnabled || false;
         this.physicsOptions = options.physicsOptions || {};
         if (this.physicsEnabled) {
             this.body = {};
         }
-        // unique ID for each object
         this.id = options.id || uid();
-        // where can it move? set with scene.setBoundaries()
         this.bounds = options.bounds || [0, 0];
         this.boundsActive = options.boundsActive || false;
-        // does nothing!
-        this.pinned = true;
+        this.pinned = null;
         this._state = options._state || {};
         this.square = options.square || false; // assume the worst
         this.hitbox = options.hitbox || [0, 0];
@@ -573,6 +570,7 @@ var GameObject = /** @class */ (function () {
         this.isLocalPlayer = false;
         this.blocks = options.blocks || [];
         this.blockedBy = [];
+        this.pinRef = "coordinates";
         this.blocks.forEach(function (object) {
             object.blockedBy.push(_this);
         });
@@ -693,13 +691,14 @@ var GameObject = /** @class */ (function () {
      * Modifies pin
      */
     GameObject.prototype.unpin = function () {
-        this.pinned = false;
+        this.pinned = null;
     };
     /**
      * Modifies pin
      */
-    GameObject.prototype.pin = function () {
-        this.pinned = true;
+    GameObject.prototype.pin = function (object, to) {
+        this.pinned = object;
+        this.pinRef = to;
     };
     /**
      * Returns the gameobject represented as an array of points.
@@ -719,6 +718,7 @@ var GameObject = /** @class */ (function () {
     };
     /**
      * Draws the object's label on top of the object
+     * The label is the objects meta label (eg: object.meta.label = "...")
      *
      * @param options The DrawOptions for the object
      */
@@ -866,6 +866,17 @@ var GameObject = /** @class */ (function () {
      * Does nothing
      */
     GameObject.prototype.update = function () {
+        if (this.pinned) {
+            if (this.pinRef == "center") {
+                var centroid = getCentroid(this.polify());
+                var pinnedCentroid = getCentroid(this.pinned.polify());
+                var vector = [pinnedCentroid[0] - centroid[0], pinnedCentroid[1] - centroid[1]];
+                this.moveStatic(vector);
+            }
+            else {
+                this.coordinates = this.pinned.coordinates;
+            }
+        }
     };
     GameObject.prototype.initialize = function (scene) {
     };
@@ -1054,6 +1065,7 @@ var Polygon = /** @class */ (function (_super) {
             newPoints.push(sumArrays(p, sumArrays(point, multArrays([-1, -1], this.coordinates))));
         }
         this.points = newPoints;
+        this.coordinates = findTopLeftMostPoint(this.points);
         return true;
     };
     return Polygon;
@@ -1204,25 +1216,6 @@ var Sprite = /** @class */ (function (_super) {
     return Sprite;
 }(GameObject));
 exports.Sprite = Sprite;
-/**
- * @class Text
- * @classdesc Text class, used for rendering text
- * @property {string} text - The text to render
- * @property {Point} coordinates - The coordinates of the text
- * @property {string} font - The font of the text, eg: "Arial", "Times New Roman", etc.
- * @property {number} fontSize - The font size of the text, in pixels
- * @property {string} color - The color of the text, in hex or rgb format
- * @property {string} type - The type of the object, "text"
- * @example
- * ```js
- *  const text = new Text({
- *      text: "Hello, World!",
- *      coordinates: [0, 0],
- *      font: "Arial",
- *      fontSize: 20,
- *      color: "black"
- *  });
- */
 var Particle = /** @class */ (function (_super) {
     __extends(Particle, _super);
     function Particle(options, childOpts) {
@@ -1235,6 +1228,7 @@ var Particle = /** @class */ (function (_super) {
         return _this;
     }
     Particle.prototype.update = function () {
+        _super.prototype.update.call(this);
         this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
     };
     Particle.prototype.draw = function (options) {
@@ -1287,6 +1281,7 @@ var Particles = /** @class */ (function (_super) {
         }
     };
     Particles.prototype.update = function () {
+        _super.prototype.update.call(this);
         this.children = this.children.filter(function (child) {
             return performance.now() - child.spawnedAt < child.life;
         });

@@ -11544,6 +11544,7 @@ function checkCollision(polygon, pointsArray) {
  * @property {boolean} isLocalPlayer - True if the object is the local player, false otherwise
  * @property {Array<GameObject>} blocks - List of objects that this object blocks
  * @property {Array<GameObject>} blockedBy - List of objects that block this object
+ * @property {"coordinates" | "center"} pinRef - Reference point to pin the object to (only applies if the object is pinned)
  * @example
  * ```js
  *  const gameObject = new GameObject({
@@ -11567,19 +11568,15 @@ var GameObject = /** @class */ (function () {
         if (options === void 0) { options = {}; }
         var _this = this;
         this.gameObjectOptions = options;
-        // will physics work on this object?
         this.physicsEnabled = options.physicsEnabled || false;
         this.physicsOptions = options.physicsOptions || {};
         if (this.physicsEnabled) {
             this.body = {};
         }
-        // unique ID for each object
         this.id = options.id || uid();
-        // where can it move? set with scene.setBoundaries()
         this.bounds = options.bounds || [0, 0];
         this.boundsActive = options.boundsActive || false;
-        // does nothing!
-        this.pinned = true;
+        this.pinned = null;
         this._state = options._state || {};
         this.square = options.square || false; // assume the worst
         this.hitbox = options.hitbox || [0, 0];
@@ -11591,6 +11588,7 @@ var GameObject = /** @class */ (function () {
         this.isLocalPlayer = false;
         this.blocks = options.blocks || [];
         this.blockedBy = [];
+        this.pinRef = "coordinates";
         this.blocks.forEach(function (object) {
             object.blockedBy.push(_this);
         });
@@ -11711,13 +11709,14 @@ var GameObject = /** @class */ (function () {
      * Modifies pin
      */
     GameObject.prototype.unpin = function () {
-        this.pinned = false;
+        this.pinned = null;
     };
     /**
      * Modifies pin
      */
-    GameObject.prototype.pin = function () {
-        this.pinned = true;
+    GameObject.prototype.pin = function (object, to) {
+        this.pinned = object;
+        this.pinRef = to;
     };
     /**
      * Returns the gameobject represented as an array of points.
@@ -11737,6 +11736,7 @@ var GameObject = /** @class */ (function () {
     };
     /**
      * Draws the object's label on top of the object
+     * The label is the objects meta label (eg: object.meta.label = "...")
      *
      * @param options The DrawOptions for the object
      */
@@ -11884,6 +11884,17 @@ var GameObject = /** @class */ (function () {
      * Does nothing
      */
     GameObject.prototype.update = function () {
+        if (this.pinned) {
+            if (this.pinRef == "center") {
+                var centroid = getCentroid(this.polify());
+                var pinnedCentroid = getCentroid(this.pinned.polify());
+                var vector = [pinnedCentroid[0] - centroid[0], pinnedCentroid[1] - centroid[1]];
+                this.moveStatic(vector);
+            }
+            else {
+                this.coordinates = this.pinned.coordinates;
+            }
+        }
     };
     GameObject.prototype.initialize = function (scene) {
     };
@@ -12064,12 +12075,6 @@ var Polygon = /** @class */ (function (_super) {
      * @param point The point in space to move the polygon to
      * @returns True
      */
-    /**
-     * Moves the polygon to a point as apposed to moving it by a vector
-     *
-     * @param point The point in space to move the polygon to
-     * @returns True
-     */
     Polygon.prototype.moveTo = function (point) {
         var newPoints = [];
         for (var _i = 0, _a = this.points; _i < _a.length; _i++) {
@@ -12077,6 +12082,7 @@ var Polygon = /** @class */ (function (_super) {
             newPoints.push(sumArrays(p, sumArrays(point, multArrays([-1, -1], this.coordinates))));
         }
         this.points = newPoints;
+        this.coordinates = findTopLeftMostPoint(this.points);
         return true;
     };
     return Polygon;
@@ -12225,6 +12231,83 @@ var Sprite = /** @class */ (function (_super) {
     };
     return Sprite;
 }(GameObject));
+var Particle = /** @class */ (function (_super) {
+    __extends(Particle, _super);
+    function Particle(options, childOpts) {
+        var _this = _super.call(this, options) || this;
+        _this.type = "particle_child";
+        _this.speed = childOpts.speed;
+        _this.life = childOpts.life;
+        _this.angle = childOpts.angle;
+        _this.spawnedAt = performance.now();
+        return _this;
+    }
+    Particle.prototype.update = function () {
+        _super.prototype.update.call(this);
+        this.move([this.speed * Math.cos(this.angle), this.speed * Math.sin(this.angle)]);
+    };
+    Particle.prototype.draw = function (options) {
+        _super.prototype.draw.call(this, options);
+    };
+    return Particle;
+}(Sprite));
+var Particles = /** @class */ (function (_super) {
+    __extends(Particles, _super);
+    function Particles(options) {
+        var _this = _super.call(this, options) || this;
+        _this.type = "particle";
+        _this.spread = options.spread || Math.PI * 2;
+        _this.speed = options.speed || 1;
+        _this.life = options.life || 500;
+        _this.children = [];
+        _this.spawnRate = options.spawnRate || 50;
+        _this.angle = options.angle || 0;
+        _this.lifeVariability = options.lifeVariability || 0;
+        _this.spawn();
+        return _this;
+    }
+    Particles.prototype.spawn = function (n) {
+        var _this = this;
+        if (n === void 0) { n = 1; }
+        for (var i = 0; i < n; i++) {
+            var angle = (Math.random() * this.spread - this.spread / 2) - (this.angle);
+            var child = new Particle({
+                url: this.image,
+                coordinates: this.coordinates,
+                width: this.width,
+                height: this.height,
+            }, {
+                angle: angle,
+                speed: this.speed,
+                life: this.life * (1 + Math.random() * this.lifeVariability - this.lifeVariability / 2)
+            });
+            this.children.push(child);
+        }
+        if (this.spawnRate >= 10) {
+            setTimeout(function () {
+                _this.spawn();
+            }, this.spawnRate);
+        }
+        else {
+            setTimeout(function () {
+                _this.spawn(Math.floor(10 / _this.spawnRate));
+            });
+        }
+    };
+    Particles.prototype.update = function () {
+        _super.prototype.update.call(this);
+        this.children = this.children.filter(function (child) {
+            return performance.now() - child.spawnedAt < child.life;
+        });
+    };
+    Particles.prototype.draw = function (drawOptions) {
+        this.children.forEach(function (child) {
+            child.update();
+            child.draw(drawOptions);
+        });
+    };
+    return Particles;
+}(Sprite));
 /**
  * @class Text
  * @classdesc Text class, used for rendering text
@@ -12263,11 +12346,6 @@ var Text = /** @class */ (function (_super) {
      *
      * @param options DrawOptions for the object
      */
-    /**
-     * Draws the text onto the provided drawing context. This is handled automatically with scene and scene managers
-     *
-     * @param options DrawOptions for the object
-     */
     Text.prototype.draw = function (options) {
         if (!options.ctx)
             return;
@@ -12276,12 +12354,6 @@ var Text = /** @class */ (function (_super) {
         this.ctx.fillStyle = this.color;
         this.ctx.fillText(this.text, this.coordinates[0] - options.camera[0], this.coordinates[1] - options.camera[1]);
     };
-    /**
-     * Gets the width, as rendered, of the text
-     *
-     * @param scene The scene that the text is in
-     * @returns The width of the text, in pixels
-     */
     /**
      * Gets the width, as rendered, of the text
      *
@@ -12307,12 +12379,6 @@ var Text = /** @class */ (function (_super) {
      * @param scene The scene that the text is in
      * @returns The height of the text, in pixels
      */
-    /**
-     * Gets the height, as rendered, of the text
-     *
-     * @param scene The scene that the text is in
-     * @returns The height of the text, in pixels
-     */
     Text.prototype.getHeight = function (scene) {
         if (!scene && !this.ctx)
             return 0;
@@ -12326,11 +12392,6 @@ var Text = /** @class */ (function (_super) {
         this.ctx.font = "".concat(this.fontSize, "px ").concat(this.font);
         return this.ctx.measureText(this.text).actualBoundingBoxAscent;
     };
-    /**
-     * Gets a list of points representing the bounding box of the text
-     *
-     * @returns A list of points representing the bounding box of the text
-     */
     /**
      * Gets a list of points representing the bounding box of the text
      *
