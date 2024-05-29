@@ -1520,23 +1520,7 @@ class GameObject {
             if (!continueAfterPhysics) return false;
         }
         if (this.boundsActive) {
-            if (newCoords[0] < 0 || newCoords[0] + this.getWidth() > this.bounds[0] || newCoords[1] < 0 || newCoords[1] + this.getHeight() > this.bounds[1]) {
-                var passesRightBound = (newCoords[0] + this.getWidth() > this.bounds[0]);
-                var passesLeftBound = (newCoords[0] < 0);
-                var passesTopBound = (newCoords[1] < 0);
-                var passesBottomBound = (newCoords[1] + this.getHeight() > this.bounds[1]);
-                if (passesRightBound) {
-                    this.coordinates[0] = this.bounds[0] - this.getWidth();
-                }
-                if (passesLeftBound) {
-                    this.coordinates[0] = 0;
-                }
-                if (passesTopBound) {
-                    this.coordinates[1] = 0;
-                }
-                if (passesBottomBound) {
-                    this.coordinates[1] = this.bounds[1] - this.getHeight();
-                }
+            if (newPoly.some((point: Point) => point[0] < 0 || point[0] > this.bounds[0] || point[1] < 0 || point[1] > this.bounds[1])) {
                 return false;
             } else {
                 this.coordinates = newCoords;
@@ -1587,8 +1571,8 @@ class GameObject {
      * Does nothing
      */
     update() {
-        if(this.pinned){
-            if(this.pinRef == "center"){
+        if (this.pinned) {
+            if (this.pinRef == "center") {
                 var centroid = getCentroid(this.polify());
                 var pinnedCentroid = getCentroid(this.pinned.polify());
 
@@ -2096,7 +2080,7 @@ class Particles extends Sprite {
                 this.spawn();
             }, this.spawnRate);
         } else {
-            setTimeout(()=>{
+            setTimeout(() => {
                 this.spawn(Math.floor(10 / this.spawnRate));
             })
         }
@@ -4638,7 +4622,7 @@ class Sound {
  *  const soundEmitter = new ANVIL.SoundEmitterPolygon({
  *      points: [[0,0],[100,0],[100,100],[0,100]],
  *      backgroundColor: "red",
- *      soundOptions: {
+ *      }, {
  *          listener: playerObject,
  *          source: "path/to/sound.mp3",
  *          loop: true,
@@ -4699,14 +4683,14 @@ class SoundEmitterPolygon extends Polygon {
      * Plays the sound
      * @returns {void}
      */
-    playSound(): void {
+    play(): void {
         this.sound.play();
     }
     /**
      * Stops the sound
      * @returns {void}
      */
-    stopSound(): void {
+    stop(): void {
         this.sound.stop();
     }
 }

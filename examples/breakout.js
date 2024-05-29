@@ -100,15 +100,17 @@ for (var i = 0; i < 8; i++) {
 
 // all we need to update is the ball position and check to see if it is past the walls
 function update() {
-    ball.move(ball.meta.velocity)
+    var moved = ball.move(ball.meta.velocity);
+
     var right = ball.points[1][0];
     var left = ball.points[0][0];
     var top = ball.points[0][1];
     var bottom = ball.points[2][1];
-    if (right >= 800 || left <= 0) {
+    // if the ball can not move past the walls (we enabled bouncds, make it bounce)
+    if (right >= 800 || left <= 0 || !moved) {
         ball.meta.velocity[0] = -1 * ball.meta.velocity[0];
     }
-    if (top <= 0) {
+    if (top <= 0 || !moved) {
         ball.meta.velocity[1] = -1 * ball.meta.velocity[1];
     }
     if (bottom >= 500) {

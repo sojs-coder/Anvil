@@ -11706,13 +11706,16 @@ var GameObject = /** @class */ (function () {
         Matter.Body.applyForce(this.body, this.body.position, vec);
     };
     /**
-     * Modifies pin
+     * Removes the pinned object
      */
     GameObject.prototype.unpin = function () {
         this.pinned = null;
     };
     /**
-     * Modifies pin
+     * Modifies pin to a game object
+     *
+     * @param object The game object to pin to
+     * @param to The reference point to pin to (either "center" or "coordinates")
      */
     GameObject.prototype.pin = function (object, to) {
         this.pinned = object;
@@ -11798,6 +11801,7 @@ var GameObject = /** @class */ (function () {
      * @returns Boolean, true if the move was successful, false if it was not (if it was out of bounds, it will not move)
      */
     GameObject.prototype.move = function (vector, continueAfterPhysics) {
+        var _this = this;
         if (continueAfterPhysics === void 0) { continueAfterPhysics = true; }
         var newCoords = sumArrays(this.coordinates, vector);
         var newPoly = this.polifyWithOffset(vector);
@@ -11817,23 +11821,7 @@ var GameObject = /** @class */ (function () {
                 return false;
         }
         if (this.boundsActive) {
-            if (newCoords[0] < 0 || newCoords[0] + this.getWidth() > this.bounds[0] || newCoords[1] < 0 || newCoords[1] + this.getHeight() > this.bounds[1]) {
-                var passesRightBound = (newCoords[0] + this.getWidth() > this.bounds[0]);
-                var passesLeftBound = (newCoords[0] < 0);
-                var passesTopBound = (newCoords[1] < 0);
-                var passesBottomBound = (newCoords[1] + this.getHeight() > this.bounds[1]);
-                if (passesRightBound) {
-                    this.coordinates[0] = this.bounds[0] - this.getWidth();
-                }
-                if (passesLeftBound) {
-                    this.coordinates[0] = 0;
-                }
-                if (passesTopBound) {
-                    this.coordinates[1] = 0;
-                }
-                if (passesBottomBound) {
-                    this.coordinates[1] = this.bounds[1] - this.getHeight();
-                }
+            if (newPoly.some(function (point) { return point[0] < 0 || point[0] > _this.bounds[0] || point[1] < 0 || point[1] > _this.bounds[1]; })) {
                 return false;
             }
             else {
@@ -12231,6 +12219,14 @@ var Sprite = /** @class */ (function (_super) {
     };
     return Sprite;
 }(GameObject));
+/**
+ * @class Particle
+ * @classdesc Particle class, renders a single particle
+ * @property {number} speed - The speed of the particles (in pixels per tick)
+ * @property {number} life - The life of the particles (in milliseconds)
+ * @property {number} angle - The angle of the particles (in radians)
+ * @property {number} spawnedAt - The time the particle was spawned
+ */
 var Particle = /** @class */ (function (_super) {
     __extends(Particle, _super);
     function Particle(options, childOpts) {
@@ -12251,6 +12247,29 @@ var Particle = /** @class */ (function (_super) {
     };
     return Particle;
 }(Sprite));
+/**
+ * @class Particles
+ * @classdesc Particles class, used for rendering particles
+ * @property {number} spread - The spread of the particles (in radians)
+ * @property {number} speed - The speed of the particles (in pixels per tick)
+ * @property {number} life - The life of the particles (in milliseconds)
+ * @property {Array<Particle>} children - The children of the particles (each particle object)
+ * @property {number} lifeVariability - The variability of the life of the particles (in milliseconds)
+ * @example
+ * ```js
+ *  const particles = new Particles({
+ *      url: "https://i.imgur.com/9Nc8fFp.png",
+ *      coordinates: [0, 0],
+ *      width: 100,
+ *      height: 100,
+ *      spread: Math.PI * 2,
+ *      speed: 1,
+ *      life: 500,
+ *      angle: Math.PI / 2,
+ *      lifeVariability: 0,
+ *      spawnRate: 50
+ *  });
+ */
 var Particles = /** @class */ (function (_super) {
     __extends(Particles, _super);
     function Particles(options) {
@@ -12266,6 +12285,11 @@ var Particles = /** @class */ (function (_super) {
         _this.spawn();
         return _this;
     }
+    /**
+     * Spawns a number (n) of particles
+     *
+     * @param n The number of particles to spawn
+     */
     Particles.prototype.spawn = function (n) {
         var _this = this;
         if (n === void 0) { n = 1; }
@@ -12294,12 +12318,20 @@ var Particles = /** @class */ (function (_super) {
             });
         }
     };
+    /**
+     * Updates all of the particles
+     */
     Particles.prototype.update = function () {
         _super.prototype.update.call(this);
         this.children = this.children.filter(function (child) {
             return performance.now() - child.spawnedAt < child.life;
         });
     };
+    /**
+     * Draws all of the particles
+     *
+     * @param drawOptions The DrawOptions for the object
+     */
     Particles.prototype.draw = function (drawOptions) {
         this.children.forEach(function (child) {
             child.update();
