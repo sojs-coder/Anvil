@@ -33,7 +33,7 @@ nav {
     justify-content: center;
     padding: 50px;
     box-sizing: border-box;
-    min-height: 100vh;
+    min-height: 60vh;
 
 }
 .sec-normal p{
@@ -82,7 +82,7 @@ nav {
     align-items: center;
     padding: 75px;
     box-sizing: border-box;
-    min-height: 100vh;
+    min-height: 70vh;
 }
 .left-center-items{
     display: flex;
