@@ -12,7 +12,7 @@ var particles = new Particles({
   angle: 0,
   speed: 1,
   life: 10000,
-  spawnRate: 0.5,
+  spawnRate: 20,
   lifeVariability: 0
 });
 
