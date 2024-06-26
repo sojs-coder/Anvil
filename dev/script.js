@@ -11,13 +11,12 @@ var particles = new Particles({
   spread: Math.PI * 2,
   angle: 0,
   speed: 1,
-  life: 10000,
-  spawnRate: 0.5,
+  life: 1000,
+  spawnRate: 20,
   lifeVariability: 0
 });
 
 scene.addObject(particles);
-scene.treatAsPlayer(particles);
 
 var sceneManager = new SceneManager({
   canvas: document.getElementById("canv1"),
