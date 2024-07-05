@@ -2450,6 +2450,7 @@ exports.Scene = Scene;
  * @property {boolean} fromScenePrevHadLights - Whether or not the scene that the animation is coming from had lighting enabled
  * @property {boolean} toScenePrevHadLights - Whether or not the scene that the animation is going to had lighting enabled
  * @property {boolean} start - Whether or not to start the scene manager when it is initialized (true by default)
+ * @property {boolean} autoDraw - Should the scene manager start drawing the scene onto the canvas (true, default), or will this be handled by the user (false)
  *
  * @example
  * ```js
@@ -2488,6 +2489,7 @@ var SceneManager = /** @class */ (function () {
         this.canvas.width = this.width;
         this.canvas.height = this.height;
         this.start = (options.start == undefined) ? true : options.start;
+        this.autoDraw = (options.autoDraw == undefined) ? true : options.autoDraw;
         this.scenes[initialScene.id].width = this.width;
         this.scenes[initialScene.id].height = this.height;
         this.scenes[initialScene.id].canvas = this.canvas;
@@ -2622,9 +2624,11 @@ var SceneManager = /** @class */ (function () {
             }
             this.scenes[this.activeScene].draw();
         }
-        window.requestAnimationFrame(function () {
-            _this.draw();
-        });
+        if (this.autoDraw) {
+            window.requestAnimationFrame(function () {
+                _this.draw();
+            });
+        }
     };
     return SceneManager;
 }());

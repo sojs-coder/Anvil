@@ -264,6 +264,7 @@ interface SpriteOptions extends GameObjectOptions {
  * @property {number} width - Width of canvas (this will overwrite the canvas width)
  * @property {number} height - Height of canvas (this will overwrite the canvas height)
  * @property {boolean} [start=true] - Whether or not to start drawing the scene when the SceneManager is created
+ * @property {boolean} [autoDraw=true] - Start drawing over and over automatically if start is true or if the draw method was called.
  * @example
  * ```js
  *  const options: SceneManagerOptions = {
@@ -280,6 +281,7 @@ interface SceneManagerOptions {
     width: number; // Width of canvas (this will overwrite the canvas width)
     height: number; // Height of canvas (this will overwrite the canvas height),
     start?: boolean; // Whether or not to start drawing the scene when the SceneManager is created. True by default
+    autoDraw?: boolean;
 }
 
 
@@ -3298,6 +3300,7 @@ Please make sure to add the objects to the scene before enabling collisions betw
  * @property {boolean} fromScenePrevHadLights - Whether or not the scene that the animation is coming from had lighting enabled
  * @property {boolean} toScenePrevHadLights - Whether or not the scene that the animation is going to had lighting enabled
  * @property {boolean} start - Whether or not to start the scene manager when it is initialized (true by default)
+ * @property {boolean} autoDraw - Should the scene manager start drawing the scene onto the canvas (true, default), or will this be handled by the user (false)
  * 
  * @example
  * ```js
@@ -3333,6 +3336,7 @@ class SceneManager {
     toScenePrevHadLights!: boolean;
     animationRunning: boolean;
     start: boolean;
+    autoDraw: boolean;
 
     /**
      * 
@@ -3352,7 +3356,7 @@ class SceneManager {
         this.canvas.width = this.width;
         this.canvas.height = this.height;
         this.start = (options.start == undefined) ? true : options.start;
-
+        this.autoDraw = (options.autoDraw == undefined) ? true : options.autoDraw;
         this.scenes[initialScene.id].width = this.width;
         this.scenes[initialScene.id].height = this.height;
         this.scenes[initialScene.id].canvas = this.canvas;
@@ -3497,9 +3501,11 @@ class SceneManager {
             }
             this.scenes[this.activeScene].draw();
         }
-        window.requestAnimationFrame(() => {
-            this.draw();
-        })
+        if(this.autoDraw){
+            window.requestAnimationFrame(() => {
+                this.draw();
+            })
+        }
     }
 }
 /**
