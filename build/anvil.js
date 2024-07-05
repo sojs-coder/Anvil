@@ -14678,7 +14678,7 @@ var Sound = /** @class */ (function () {
  *  const soundEmitter = new ANVIL.SoundEmitterPolygon({
  *      points: [[0,0],[100,0],[100,100],[0,100]],
  *      backgroundColor: "red",
- *      soundOptions: {
+ *      }, {
  *          listener: playerObject,
  *          source: "path/to/sound.mp3",
  *          loop: true,
@@ -14739,14 +14739,14 @@ var SoundEmitterPolygon = /** @class */ (function (_super) {
      * Plays the sound
      * @returns {void}
      */
-    SoundEmitterPolygon.prototype.playSound = function () {
+    SoundEmitterPolygon.prototype.play = function () {
         this.sound.play();
     };
     /**
      * Stops the sound
      * @returns {void}
      */
-    SoundEmitterPolygon.prototype.stopSound = function () {
+    SoundEmitterPolygon.prototype.stop = function () {
         this.sound.stop();
     };
     return SoundEmitterPolygon;
